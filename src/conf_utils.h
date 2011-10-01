@@ -13,10 +13,12 @@
 typedef struct __power_prefs {
 	bool bluetooth;
 	bool nmi_watchdog;
+	bool wireless;
 } power_prefs_t;
 
 typedef struct __ini_table {
 	const char *key;
+	size_t store_offset;
 	void (*handler)(void *, const char*);
 } ini_table_t;
 
