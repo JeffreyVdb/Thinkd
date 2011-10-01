@@ -55,11 +55,8 @@ int read_ini()
 			if (! brackp) break;
 			*brackp = '\0';
 
-			if (strcmp(bptr, "powersave") == 0) {
+			if (strcmp(bptr, "powersave") == 0)
 				read_section(ini_fp, &mode_powersave);
-				syslog(LOG_INFO, "bluetooth: %d", (int) mode_powersave.bluetooth);
-				syslog(LOG_INFO, "watchdog: %d", (int) mode_powersave.nmi_watchdog); 
-			}
 			else if (strcmp(bptr, "performance") == 0)
 				read_section(ini_fp, &mode_performance);
 			else if (strcmp(bptr, "critical") == 0)
