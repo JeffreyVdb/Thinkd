@@ -2,6 +2,7 @@
 #define _CONF_UTILS_H_
 
 #include <stdbool.h>
+#include <stdlib.h>
 
 /* this makes our configuration a little more clear */
 #define ENABLED true
@@ -26,7 +27,7 @@ extern power_prefs_t mode_powersave;
 extern power_prefs_t mode_heavy_powersave;
 extern power_prefs_t mode_critical;
 
-extern ini_table_t* alloc_ini_table();
+extern size_t alloc_ini_table();
 extern void free_ini_table();
 extern int read_ini();
 extern void ini_read_bool(void *store, const char *value);
