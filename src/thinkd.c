@@ -13,10 +13,14 @@
 
 #include "thinkd.h"
 #include "conf_utils.h"
+#include "acpi.h"
 
 /* constants */
 static const char *lockfile = THINKD_LOCKFILE;
 static const char *pidfile = THINKD_PIDFILE;
+
+/* default mode is powersave */
+static power_prefs_t *current_mode = &mode_powersave;
 
 /* Display help with options */
 static void handle_cmd_args(int *argc, char ***argv);
@@ -25,9 +29,10 @@ static bool daemonize();
 static bool std2null();
 static void clean_exit_status();
 static bool create_pidfile();
+static void detect_psupply_mode();
 
 int main(int argc, char *argv[])
-{
+{	
 	/* open logging interface first off */
 	open_log();
 	
@@ -40,13 +45,38 @@ int main(int argc, char *argv[])
 	/* read in configuration */
 	read_ini();
 
+	/* initialize power_supply before loop */
+	detect_psupply_mode();
+
 	/* do the never ending loop */
 	while (1) {
-		syslog(LOG_INFO, "probing for things ..");
 		sleep(30);
+		detect_psupply_mode();
 	}
 	
 	return 0;
+}
+
+static void detect_psupply_mode()
+{
+	int i = 0;
+	int num_batts;
+	acpi_psupply_t power_supply;
+
+	if ((num_batts = scan_power_supply(&power_supply)) < 0) {
+		syslog(LOG_ERR, "failed to detect acpi power supply information");
+		current_mode = &mode_powersave;
+		return;
+	}
+
+	/* some debugging */
+	while (i < num_batts) {
+		syslog(LOG_INFO, "found battery: %s", power_supply.batteries[i]);
+		++i;
+	}
+
+	if (power_supply.acdir)
+		syslog(LOG_INFO, "found ac adapter plugged in: %s", power_supply.acdir);
 }
 
 static void open_log()

@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -std=gnu99 -O2 -pedantic -Wall -g
 EXE = thinkd
-SRCS = thinkd.c conf_utils.c
+SRCS = thinkd.c conf_utils.c acpi.c
 
 # use macro to replace the source suffixes to .o
 OBJS = $(SRCS:.c=.o)
@@ -21,7 +21,7 @@ $(EXE): $(OBJS)
 	@echo "CC\t\t$< -> $@"	
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
-.PHONY: all clean killd
+.PHONY: all clean killd install
 
 killd:
 	@echo "killing daemon"
