@@ -27,9 +27,11 @@ static void handle_cmd_args(int *argc, char ***argv);
 static void open_log();
 static bool daemonize();
 static bool std2null();
-static void clean_exit_status();
+static void clean_and_exit();
+static void cleanup_before_exit();
 static bool create_pidfile();
 static void detect_psupply_mode();
+static void print_usage(const struct option *opts, const char **opt_help);
 
 int main(int argc, char *argv[])
 {	
@@ -38,7 +40,7 @@ int main(int argc, char *argv[])
 	
 	handle_cmd_args(&argc, &argv);
 	if (! daemonize()) {
-		clean_exit_status();
+		cleanup_before_exit();
 		return 1;
 	}
 
@@ -114,25 +116,68 @@ static bool create_pidfile()
 	return false;
 }
 
-static void clean_exit_status()
+static void cleanup_before_exit()
 {
 	syslog(LOG_NOTICE, "exiting");
 	closelog();
 	unlink(lockfile);
+}
 
+static void clean_and_exit()
+{
+	cleanup_before_exit();
 	exit(EXIT_SUCCESS);
 }
 
 static void handle_cmd_args(int *argc, char ***argv)
 {
+	int c, option_index;
 	const struct option  opts[] = {
 		{"help", 0, 0, 'h'},
+		{"version", 0, 0, 'v'},
 		{NULL, 0, 0, 0}
 	};
 
 	const char * opts_help[] = {
-		"print help message" /* help */
+		"print help message", /* help */
+		"print version of this program" /* version */
 	};
+
+	while ((c = getopt_long(*argc, *argv, "h", opts, &option_index)) != -1) {
+		switch (c) {
+		case 0:
+			/* this option sets a flag */
+			break;
+		case 'h':
+			print_usage(opts, opts_help);
+			clean_and_exit();
+		case '?':
+		default:
+			print_usage(opts, opts_help);
+			cleanup_before_exit();
+			exit(EXIT_FAILURE);
+			break;
+		}
+	}
+}
+
+static void print_usage(const struct option *opts, const char **opt_help)
+{
+	const struct option *opt;
+	const char **help;
+	size_t longest_opt = (size_t) 0, siz;
+	
+	/* find longest options */
+	for (opt = opts; opt->name; ++opt) {
+		if ((siz = strlen(opt->name)) > longest_opt)
+			longest_opt = siz;
+	}
+
+	fprintf(stdout, "Usage for %s\n\nOPTIONS:\n", DAEMON_NAME);
+	for (opt = opts, help = opt_help; opt->name; ++opt, ++help) {
+		fprintf(stdout, "\t-%-5c --%-*s\t%s\n",
+			opt->val, (int) longest_opt, opt->name, *help);
+	}
 }
 
 static bool daemonize()
@@ -174,7 +219,7 @@ static bool daemonize()
 	std2null();
 
 	/* set signals */
-	s_action.sa_handler = clean_exit_status;
+	s_action.sa_handler = clean_and_exit;
 	sigemptyset(&s_action.sa_mask);
 	s_action.sa_flags = 0;
 	
