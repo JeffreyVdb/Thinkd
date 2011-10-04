@@ -7,6 +7,7 @@ SRCS = thinkd.c conf_utils.c acpi.c
 OBJS = $(SRCS:.c=.o)
 RM = rm -f
 SRCDIR = src
+INITDIR = init.d
 REAL_SRCS = $(addprefix $(SRCDIR)/, $(SRCS))
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
@@ -32,3 +33,4 @@ clean:
 
 install: $(EXE)
 	install -m 0755 $(EXE) $(BINDIR)
+	install -m 0755 $(INITDIR)/$(EXE) /etc/init.d

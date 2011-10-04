@@ -20,7 +20,8 @@ static const char *lockfile = THINKD_LOCKFILE;
 static const char *pidfile = THINKD_PIDFILE;
 
 /* default mode is powersave */
-static power_prefs_t *current_mode = &mode_powersave;
+static power_prefs_t *current_mode = NULL;
+static int sleep_time = BAT_SLEEP_TIME;
 
 /* Display help with options */
 static void handle_cmd_args(int *argc, char ***argv);
@@ -52,7 +53,7 @@ int main(int argc, char *argv[])
 
 	/* do the never ending loop */
 	while (1) {
-		sleep(30);
+		sleep(sleep_time);
 		detect_psupply_mode();
 	}
 	
@@ -61,7 +62,8 @@ int main(int argc, char *argv[])
 
 static void detect_psupply_mode()
 {
-	int i = 0;
+	char buffer[256];
+	int state;
 	int num_batts;
 	acpi_psupply_t power_supply;
 
@@ -71,14 +73,26 @@ static void detect_psupply_mode()
 		return;
 	}
 
-	/* some debugging */
-	while (i < num_batts) {
-		syslog(LOG_INFO, "found battery: %s", power_supply.batteries[i]);
-		++i;
+	/* check if ac adapter is online */
+	snprintf(buffer, 256, "%s/%s", power_supply.acdir, "online");
+	state = sysfs_read_int(buffer);
+	if (state) {
+		if (current_mode == &mode_performance) return;
+		
+		syslog(LOG_INFO, "ac adapater is connected, enabling performance mode");
+		current_mode = &mode_performance;
+		sleep_time = AC_SLEEP_TIME;
+
+		return;
 	}
 
-	if (power_supply.acdir)
-		syslog(LOG_INFO, "found ac adapter plugged in: %s", power_supply.acdir);
+	/* battery is connected */
+	if (current_mode == &mode_powersave)
+		return;
+
+	syslog(LOG_INFO, "changing to powersave mode");
+	current_mode = &mode_powersave;
+	sleep_time = BAT_SLEEP_TIME;
 }
 
 static void open_log()

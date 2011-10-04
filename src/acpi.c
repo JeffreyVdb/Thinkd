@@ -63,10 +63,33 @@ int scan_power_supply(acpi_psupply_t *dest)
 
 int sysfs_read_int(const char *path)
 {
-	return 0;
+	int result;
+	FILE *fp;
+
+	fp = fopen(path, "r");
+	if (! fp) {
+		syslog(LOG_ERR, "fopen: %d (%s)", errno, strerror(errno));
+		return 0;
+	}
+
+	fscanf(fp, "%d", &result);
+	fclose(fp);
+	
+	return result;
 }
 
 char *sysfs_read_str(char * dest, size_t len, const char *path)
 {
-	return NULL;
+	FILE *fp;
+
+	fp = fopen(path, "r");
+	if (! fp) {
+		syslog(LOG_ERR, "fopen: %d (%s)", errno, strerror(errno));
+		return NULL;
+	}
+
+	fgets(dest, len, fp);
+	fclose(fp);
+	
+	return dest;
 }

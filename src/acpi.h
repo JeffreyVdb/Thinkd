@@ -4,9 +4,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#define MAX_SYSFS_STR_LEN 64
 #define MAX_POW_SUPPLY_PATH 128
 #define MAX_BATTERIES 2
 
+typedef char sysfs_str_t[MAX_SYSFS_STR_LEN];
 typedef struct __acpi_psupply {
 	char batteries[MAX_BATTERIES][MAX_POW_SUPPLY_PATH];
 	char acdir[MAX_POW_SUPPLY_PATH];
