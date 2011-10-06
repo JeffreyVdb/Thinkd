@@ -22,6 +22,7 @@ static const char *pidfile = THINKD_PIDFILE;
 /* default mode is powersave */
 static power_prefs_t *current_mode = NULL;
 static int sleep_time = BAT_SLEEP_TIME;
+static bool probing = true;
 
 /* Display help with options */
 static void handle_cmd_args(int *argc, char ***argv);
@@ -51,8 +52,18 @@ int main(int argc, char *argv[])
 	/* initialize power_supply before loop */
 	detect_psupply_mode();
 
+	/*
+	  TODO: start thread listening
+	*/
+	
+	if (! probing) {
+		/* TODO: */
+		/* simply wait for thread to end */
+		return 0;
+	}
+
 	/* do the never ending loop */
-	while (1) {
+	while (1) {		
 		sleep(sleep_time);
 		detect_psupply_mode();
 	}
@@ -149,18 +160,24 @@ static void handle_cmd_args(int *argc, char ***argv)
 	const struct option  opts[] = {
 		{"help", 0, 0, 'h'},
 		{"version", 0, 0, 'v'},
+		{"no-probe", 0, 0, 'n'},
 		{NULL, 0, 0, 0}
 	};
 
 	const char * opts_help[] = {
 		"print help message", /* help */
-		"print version of this program" /* version */
+		"print version of this program", /* version */
+		"do not try detecting the power mode" /* no-probe */
 	};
 
-	while ((c = getopt_long(*argc, *argv, "h", opts, &option_index)) != -1) {
+	while ((c = getopt_long(*argc, *argv, "hn", opts, &option_index)) != -1) {
 		switch (c) {
 		case 0:
 			/* this option sets a flag */
+			break;
+		case 'n':
+			/* stop detecting power mode */
+			probing = false;
 			break;
 		case 'h':
 			print_usage(opts, opts_help);
