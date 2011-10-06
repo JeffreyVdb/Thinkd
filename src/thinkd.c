@@ -91,6 +91,7 @@ static void detect_psupply_mode()
 		if (current_mode == &mode_performance) return;
 		
 		syslog(LOG_INFO, "ac adapater is connected, enabling performance mode");
+		load_power_mode(&mode_performance);
 		current_mode = &mode_performance;
 		sleep_time = AC_SLEEP_TIME;
 
@@ -102,6 +103,7 @@ static void detect_psupply_mode()
 		return;
 
 	syslog(LOG_INFO, "changing to powersave mode");
+	load_power_mode(&mode_powersave);
 	current_mode = &mode_powersave;
 	sleep_time = BAT_SLEEP_TIME;
 }

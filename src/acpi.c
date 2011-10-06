@@ -81,7 +81,8 @@ int sysfs_read_int(const char *path)
 char *sysfs_read_str(char * dest, size_t len, const char *path)
 {
 	FILE *fp;
-
+	char *pch;
+	
 	fp = fopen(path, "r");
 	if (! fp) {
 		syslog(LOG_ERR, "fopen: %d (%s)", errno, strerror(errno));
@@ -89,6 +90,12 @@ char *sysfs_read_str(char * dest, size_t len, const char *path)
 	}
 
 	fgets(dest, len, fp);
+	
+	/* strip newline */
+	pch = strchr(dest, '\n');
+	if (pch)
+		*pch = '\0';
+	
 	fclose(fp);
 	
 	return dest;

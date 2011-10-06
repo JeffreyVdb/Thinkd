@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "acpi.h"
+
 /* this makes our configuration a little more clear */
 #define ENABLED true
 #define DISABLED false
@@ -14,6 +16,7 @@ typedef struct __power_prefs {
 	bool bluetooth;
 	bool nmi_watchdog;
 	bool wireless;
+	bool wwan;
 } power_prefs_t;
 
 typedef struct __ini_table {
@@ -29,6 +32,7 @@ extern power_prefs_t mode_powersave;
 extern power_prefs_t mode_heavy_powersave;
 extern power_prefs_t mode_critical;
 
+extern void load_power_mode(const power_prefs_t *prefs);
 extern size_t alloc_ini_table();
 extern void free_ini_table();
 extern int read_ini();
