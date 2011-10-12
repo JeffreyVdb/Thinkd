@@ -34,3 +34,4 @@ clean:
 install: $(EXE)
 	install -m 0755 $(EXE) $(BINDIR)
 	install -m 0755 $(INITDIR)/$(EXE) /etc/init.d
+	install -m 0644 thinkd.ini /etc
