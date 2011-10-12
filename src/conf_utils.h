@@ -3,8 +3,7 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
-
-#include "acpi.h"
+#include <stdint.h>
 
 /* this makes our configuration a little more clear */
 #define ENABLED true
@@ -13,6 +12,7 @@
 #define THINKD_INI_FILE "/etc/thinkd.ini"
 
 typedef struct __power_prefs {
+	int brightness;
 	bool bluetooth;
 	bool nmi_watchdog;
 	bool wireless;
@@ -32,10 +32,11 @@ extern power_prefs_t mode_powersave;
 extern power_prefs_t mode_heavy_powersave;
 extern power_prefs_t mode_critical;
 
-extern void load_power_mode(const power_prefs_t *prefs);
 extern size_t alloc_ini_table();
 extern void free_ini_table();
 extern int read_ini();
-extern void ini_read_bool(void *store, const char *value);
+
+extern void str_read_bool(void *store, const char *value);
+extern void str_read_int(void *store, const char *value);
 
 #endif /* _CONF_UTILS_H_ */

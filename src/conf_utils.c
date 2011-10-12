@@ -1,4 +1,3 @@
-#include "conf_utils.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -6,9 +5,10 @@
 #include <ctype.h>
 #include <string.h>
 #include <strings.h>
-#include <stdarg.h>
 #include <syslog.h>
-#include <glob.h>
+
+#include "config.h"
+#include "conf_utils.h"
 
 #define OFFSET_OF(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #define MAX_SECTION_LEN 512
@@ -23,15 +23,15 @@ power_prefs_t mode_heavy_powersave;
 power_prefs_t mode_critical;
 
 ini_table_t ini_table_defs[] = {
-	{"bluetooth", OFFSET_OF(power_prefs_t, bluetooth), ini_read_bool},
-	{"nmi_watchdog", OFFSET_OF(power_prefs_t, nmi_watchdog), ini_read_bool},
-	{"wireless", OFFSET_OF(power_prefs_t, wireless), ini_read_bool},
-	{"wwan", OFFSET_OF(power_prefs_t, wwan), ini_read_bool}
+	{"bluetooth", OFFSET_OF(power_prefs_t, bluetooth), str_read_bool},
+	{"nmi_watchdog", OFFSET_OF(power_prefs_t, nmi_watchdog), str_read_bool},
+	{"wireless", OFFSET_OF(power_prefs_t, wireless), str_read_bool},
+	{"wwan", OFFSET_OF(power_prefs_t, wwan), str_read_bool},
+	{"brightness", OFFSET_OF(power_prefs_t, brightness), str_read_int}
 };
 
 /* static void debug_output(const char *path, const char *out, ...); */
 static void read_section(FILE *fp, power_prefs_t *prefs);
-static int pprintf(const char *path, const char *format, ...);
 
 int read_ini()
 {
@@ -76,24 +76,6 @@ int read_ini()
 	return 0;
 }
 
-static int pprintf(const char *path, const char *format, ...)
-{
-	va_list args;
-	FILE *fp;
-	int ret;
-	
-	fp = fopen(path, "w");
-	if (! fp)
-		return 0;
-
-	va_start(args, format);
-	ret = vfprintf(fp, format, args);
-	fclose(fp);
-
-	va_end(args);
-	return ret;
-}
-
 static void read_section(FILE *fp, power_prefs_t *prefs)
 {
 	char buffer[MAX_KEYVAL_LEN];
@@ -112,11 +94,41 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 		char *eq_pch;
 		/* TODO: support whitespace */
 		eq_pch = strchr(buffer, '=');
+
+		
 		if (! eq_pch) {
+#ifdef EXTENDED_INI_SUPPORT
+			size_t buflen;
+			char *buf_pch = buffer;
+			
+			/* skip whitespace */
+			while (isblank(*buf_pch))
+				++buf_pch;
+
+			switch (*buf_pch) {
+			case ';':
+			case '\n':
+				continue;
+				
+			case '[':
+				buflen = strlen(buf_pch);
+
+				/* set read pointer back */
+				fseek(fp, -buflen, SEEK_CUR);
+				goto clean_table;
+				
+			default:
+				syslog(LOG_ERR,
+				       "unresolved error in section, check ini file syntax");
+				goto clean_table;
+			}
+
+#else /* EXTENDED_INI_SUPPORT = disabled */
 			syslog(LOG_INFO, "no '=' found, assuming next section.");
 			break;
+#endif
 		}
-
+		
 		*eq_pch = '\0';
 
 		/* find key */
@@ -152,21 +164,6 @@ clean_table:
 	free_ini_table();
 }
 
-/* static void debug_output(const char *path, const char *out, ...) 
-{
-	va_list args;
-	FILE *fp;
-	fp = fopen(path, "w");
-	if (! fp)
-		return;
-
-	va_start(args, out);
-	vfprintf(fp, out, args);
-	fclose(fp);
-
-	va_end(args);
-} */
-
 size_t alloc_ini_table()
 {
 	int idx = 0;
@@ -194,7 +191,7 @@ void free_ini_table()
 	search_tab = NULL;
 }
 
-void ini_read_bool(void *store, const char *value)
+void str_read_bool(void *store, const char *value)
 {
 	bool *dest = (bool*) store;
 	
@@ -207,35 +204,15 @@ void ini_read_bool(void *store, const char *value)
 		*dest = false;
 }
 
-void load_power_mode(const power_prefs_t *prefs)
+void str_read_int(void *store, const char *value)
 {
-	const int VAL_SIZ = 256;
-	char buffer[VAL_SIZ], state_path[VAL_SIZ];
-	glob_t globbuf;
-	
-	/* use glob to search for bluetooth rfkill */
-	if (! glob("/sys/devices/platform/thinkpad_acpi/rfkill/rfkill?/name",
-		 0, NULL, &globbuf) == 0) {
-		syslog(LOG_ERR, "glob: %s", strerror(errno));
-		return;
+	int *dest = (int*) store;
+	int power = 1;
+	const char *a_end = value + strlen(value);
+
+	*dest = 0;
+	while (--a_end >= value) {
+		*dest += (*a_end - '0') * power;
+		power *= 10;
 	}
-		
-	for (char **p = globbuf.gl_pathv; *p; ++p) {
-		memset(state_path, 0, VAL_SIZ);
-		char *fsl_pch;
-		size_t dirname_len;
-		
-		sysfs_read_str(buffer, VAL_SIZ, *p);
-		fsl_pch = strrchr(*p, '/');
-		dirname_len = ((fsl_pch+1) - *p);
-		strncpy(state_path, *p, dirname_len);
-		strcat(state_path, "state");
-		
-		if (strcmp(buffer, "tpacpi_bluetooth_sw") == 0) 
-			pprintf(state_path, "%d", (int) prefs->bluetooth);
-		else if (strcmp(buffer, "tpacpi_wwan_sw") == 0) 
-			pprintf(state_path, "%d", (int) prefs->wwan);
-	}
-	
-	globfree(&globbuf);
 }

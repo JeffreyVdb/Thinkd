@@ -1,13 +1,18 @@
-#include "acpi.h"
-
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
 #include <syslog.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <glob.h>
+#include <stdarg.h>
+
+#include "acpi.h"
 
 #define POWER_SUPPLY_DIRECTORY "/sys/class/power_supply"
+#define BACKLIGHT_DIRECTORY "/sys/class/backlight/acpi_video0"
+
+static int pprintf(const char *path, const char *format, ...);
 
 int scan_power_supply(acpi_psupply_t *dest)
 {
@@ -99,4 +104,69 @@ char *sysfs_read_str(char * dest, size_t len, const char *path)
 	fclose(fp);
 	
 	return dest;
+}
+
+void load_power_mode(const power_prefs_t *prefs)
+{
+	const int VAL_SIZ = 256;
+	char buffer[VAL_SIZ], state_path[VAL_SIZ];
+	glob_t globbuf;
+	int max_brightness, brightness_adjust;
+	
+	/* use glob to search for bluetooth rfkill */
+	if (! glob("/sys/devices/platform/thinkpad_acpi/rfkill/rfkill?/name",
+		 0, NULL, &globbuf) == 0) {
+		syslog(LOG_ERR, "glob: %s", strerror(errno));
+		return;
+	}
+		
+	for (char **p = globbuf.gl_pathv; *p; ++p) {
+		memset(state_path, 0, VAL_SIZ);
+		char *fsl_pch;
+		size_t dirname_len;
+		
+		sysfs_read_str(buffer, VAL_SIZ, *p);
+		fsl_pch = strrchr(*p, '/');
+		dirname_len = ((fsl_pch+1) - *p);
+		strncpy(state_path, *p, dirname_len);
+		strcat(state_path, "state");
+		
+		if (strcmp(buffer, "tpacpi_bluetooth_sw") == 0) 
+			pprintf(state_path, "%d", (int) prefs->bluetooth);
+		else if (strcmp(buffer, "tpacpi_wwan_sw") == 0) 
+			pprintf(state_path, "%d", (int) prefs->wwan);
+	}
+	
+	globfree(&globbuf);
+
+	/* set brightness */
+	snprintf(buffer, VAL_SIZ, BACKLIGHT_DIRECTORY "/max_brightness");
+	max_brightness = sysfs_read_int(buffer);
+
+	brightness_adjust = prefs->brightness / (100 / max_brightness);
+	if (brightness_adjust < 0)
+		brightness_adjust = 0;
+	else if (brightness_adjust > max_brightness)
+		brightness_adjust = max_brightness;
+
+	snprintf(buffer, VAL_SIZ, BACKLIGHT_DIRECTORY "/brightness");
+	pprintf(buffer, "%d", brightness_adjust);
+}
+
+static int pprintf(const char *path, const char *format, ...)
+{
+	va_list args;
+	FILE *fp;
+	int ret;
+	
+	fp = fopen(path, "w");
+	if (! fp)
+		return 0;
+
+	va_start(args, format);
+	ret = vfprintf(fp, format, args);
+	fclose(fp);
+
+	va_end(args);
+	return ret;
 }

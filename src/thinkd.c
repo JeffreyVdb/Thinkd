@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <signal.h>
 
+#include "config.h"
 #include "thinkd.h"
 #include "conf_utils.h"
 #include "acpi.h"
