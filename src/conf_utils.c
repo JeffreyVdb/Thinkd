@@ -50,25 +50,22 @@ int read_ini()
 		while (isblank(*bptr))
 			++bptr;
 
-		if (*bptr == ';')
+		if (*bptr == ';' || *bptr != '[')
 			continue; /* skip comments */
-		else if (*bptr == '[') {
-			/* get section name */			
-			char *brackp = strchr(++bptr, ']');
-			if (! brackp) break;
-			*brackp = '\0';
-
-			if (strcmp(bptr, "powersave") == 0)
-				read_section(ini_fp, &mode_powersave);
-			else if (strcmp(bptr, "performance") == 0)
-				read_section(ini_fp, &mode_performance);
-			else if (strcmp(bptr, "critical") == 0)
-				read_section(ini_fp, &mode_critical);
-			else if (strcmp(bptr, "heavy_powersave") == 0)
-				read_section(ini_fp, &mode_heavy_powersave);
-		}
-		else
-			continue; /* either misplaced rule, newline or NULL character, just skip and ignore */
+		
+		/* get section name */			
+		char *brackp = strchr(++bptr, ']');
+		if (! brackp) break;
+		*brackp = '\0';
+		
+		if (strcmp(bptr, "powersave") == 0)
+			read_section(ini_fp, &mode_powersave);
+		else if (strcmp(bptr, "performance") == 0)
+			read_section(ini_fp, &mode_performance);
+		else if (strcmp(bptr, "critical") == 0)
+			read_section(ini_fp, &mode_critical);
+		else if (strcmp(bptr, "heavy_powersave") == 0)
+			read_section(ini_fp, &mode_heavy_powersave);	
 	}
 
 	fclose(ini_fp);
