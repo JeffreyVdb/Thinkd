@@ -14,13 +14,18 @@ BINDIR = $(PREFIX)/bin
 
 all: $(EXE)
 
-$(EXE): $(OBJS)
+$(EXE): .gitignore $(OBJS)
 	@echo "LINKING\t\t$(OBJS)"	
+	$(shell echo $@ >>.gitignore)
 	@$(CC) $(CFLAGS) -o $@ $(OBJS)
 
 %.o: $(SRCDIR)/%.c
 	@echo "CC\t\t$< -> $@"	
+	$(shell echo $@ >>.gitignore)
 	@$(CC) $(CFLAGS) -c -o $@ $<
+
+.gitignore:
+	$(shell echo .gitignore >$@)
 
 .PHONY: all clean killd install
 
@@ -29,7 +34,7 @@ killd:
 	-@$(shell sudo kill $(shell sudo cat /var/run/thinkd.pid))
 
 clean:
-	$(RM) $(OBJS) $(EXE)
+	$(RM) $(OBJS) $(EXE) .gitignore
 
 install: $(EXE)
 	install -m 0755 $(EXE) $(BINDIR)
