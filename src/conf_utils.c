@@ -32,6 +32,7 @@ ini_table_t ini_table_defs[] = {
 
 /* static void debug_output(const char *path, const char *out, ...); */
 static void read_section(FILE *fp, power_prefs_t *prefs);
+static void search_tab_mv_end(int idx, int last_non_null);
 
 int read_ini()
 {
@@ -151,14 +152,26 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 			search_tab[idx]->handler((char *) prefs + search_tab[idx]->store_offset,
 						 val_pch);
 			
-			/* remove this entry from the search tab */
-			search_tab[idx] = NULL;
+			/* Decrease length of search table, set this element to the end
+			 so it becomes unreachable */
+			--num_elems;
+			search_tab_mv_end(idx,num_elems);
 			break;
 		}
 	}
 	
 clean_table:
 	free_ini_table();
+}
+
+static void search_tab_mv_end(int idx, int last_non_null)
+{
+	ini_table_t * tmp = search_tab[last_non_null];
+	search_tab[last_non_null] = NULL;
+
+	/* replace found index with last non null element
+	   element at idx is deleted as the last element is set to null */
+	search_tab[idx] = tmp;
 }
 
 size_t alloc_ini_table()
