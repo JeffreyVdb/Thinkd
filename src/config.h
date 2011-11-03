@@ -2,5 +2,6 @@
 #define _THINKD_CONFIG_H_
 
 #define EXTENDED_INI_SUPPORT 1
+#define CONF_DEBUG 1
 
 #endif /* _THINKD_CONFIG_H_ */
