@@ -77,6 +77,9 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 {
 	char buffer[MAX_KEYVAL_LEN];
 	size_t num_elems;
+#ifdef CONF_DEBUG
+	size_t tries = 0;
+#endif
 	
 	if (! fp)
 		return;
@@ -131,6 +134,9 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 		/* find key */
 		while (++idx < num_elems) {
 			char *val_pch, *newl_pch;
+#ifdef CONF_DEBUG
+			++tries;
+#endif
 			if (!search_tab[idx] || ! strcasecmp(buffer, search_tab[idx]->key) == 0)
 				continue;
 
@@ -158,6 +164,9 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 	}
 	
 clean_table:
+#ifdef CONF_DEBUG
+	syslog(LOG_INFO, "Read section in %d tries\n", (int) tries);
+#endif
 	free_ini_table();
 }
 
