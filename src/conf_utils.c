@@ -5,10 +5,10 @@
 #include <ctype.h>
 #include <string.h>
 #include <strings.h>
-#include <syslog.h>
 
 #include "config.h"
 #include "conf_utils.h"
+#include "logger.h"
 
 #define OFFSET_OF(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #define MAX_SECTION_LEN 512
@@ -32,7 +32,7 @@ ini_table_t ini_table_defs[] = {
 
 /* static void debug_output(const char *path, const char *out, ...); */
 static void read_section(FILE *fp, power_prefs_t *prefs);
-static void search_tab_mv_end(int idx, int last_non_null);
+static void search_tab_mv_end(unsigned int idx, unsigned int last_non_null);
 
 int read_ini()
 {
@@ -40,7 +40,7 @@ int read_ini()
 	char buffer[MAX_SECTION_LEN];
 
 	/* attempt to open the file */
-	/* return errno on fail to be able to syslog it */
+	/* return errno on fail to be able to thinkd_log it */
 	ini_fp = fopen(THINKD_INI_FILE, "r");
 	if (! ini_fp)
 		return -1;
@@ -119,13 +119,13 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 				goto clean_table;
 				
 			default:
-				syslog(LOG_ERR,
+				thinkd_log(LOG_ERR,
 				       "unresolved error in section, check ini file syntax");
 				goto clean_table;
 			}
 
 #else /* EXTENDED_INI_SUPPORT = disabled */
-			syslog(LOG_INFO, "no '=' found, assuming next section.");
+			thinkd_log(LOG_INFO, "no '=' found, assuming next section.");
 			break;
 #endif
 		}
@@ -138,7 +138,11 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 #ifdef CONF_DEBUG
 			++tries;
 #endif
-			if (!search_tab[idx] || ! strcasecmp(buffer, search_tab[idx]->key) == 0)
+			if (! search_tab[idx])
+				break; /* NULL elements in search tab
+					  is not allowed */
+			
+			if (! strcasecmp(buffer, search_tab[idx]->key) == 0)
 				continue;
 
 			/* found key! */
@@ -148,13 +152,13 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 			
 			newl_pch = strchr(val_pch, '\n');
 			if (! newl_pch) {
-				syslog(LOG_ERR, "Fatal error in ini file");
+				thinkd_log(LOG_ERR, "Fatal error in ini file");
 				goto clean_table;
 			}
 
 			*newl_pch = '\0';
 			
-			syslog(LOG_INFO, "found %s in ini file with value %s.", buffer, val_pch);
+			thinkd_log(LOG_INFO, "found %s in ini file with value %s.", buffer, val_pch);
 			search_tab[idx]->handler((char *) prefs + search_tab[idx]->store_offset,
 						 val_pch);
 			
@@ -168,19 +172,19 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 	
 clean_table:
 #ifdef CONF_DEBUG
-	syslog(LOG_INFO, "Read section in %d tries\n", (int) tries);
+	thinkd_log(LOG_INFO, "Read section in %d tries\n", (int) tries);
 #endif
 	free_ini_table();
 }
 
-static void search_tab_mv_end(int idx, int last_non_null)
+static void search_tab_mv_end(unsigned int idx, unsigned int last_non_null)
 {
-	ini_table_t * tmp = search_tab[last_non_null];
-	search_tab[last_non_null] = NULL;
-
-	/* replace found index with last non null element
-	   element at idx is deleted as the last element is set to null */
-	search_tab[idx] = tmp;
+	if (idx == last_non_null)
+		search_tab[idx] = NULL;
+	else {
+		search_tab[idx] = search_tab[last_non_null];
+		search_tab[last_non_null] = NULL;
+	}
 }
 
 size_t alloc_ini_table()

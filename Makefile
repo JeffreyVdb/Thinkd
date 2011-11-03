@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -std=gnu99 -O2 -pedantic -Wall -g
 EXE = thinkd
-SRCS = thinkd.c conf_utils.c acpi.c
+SRCS = thinkd.c conf_utils.c acpi.c logger.c
 
 # use macro to replace the source suffixes to .o
 OBJS = $(SRCS:.c=.o)

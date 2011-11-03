@@ -1,13 +1,13 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
-#include <syslog.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <glob.h>
 #include <stdarg.h>
 
 #include "acpi.h"
+#include "logger.h"
 
 #define POWER_SUPPLY_DIRECTORY "/sys/class/power_supply"
 #define BACKLIGHT_DIRECTORY "/sys/class/backlight/acpi_video0"
@@ -25,7 +25,7 @@ int scan_power_supply(acpi_psupply_t *dest)
 
 	psup_dir = opendir(POWER_SUPPLY_DIRECTORY);
 	if (! psup_dir) {
-		syslog(LOG_ERR, "can't open power supply dir");
+		thinkd_log(LOG_ERR, "can't open power supply dir");
 		return -1;
 	}
 
@@ -39,7 +39,7 @@ int scan_power_supply(acpi_psupply_t *dest)
 		sprintf(psup_path, POWER_SUPPLY_DIRECTORY "/%s/type", name);
 		psup_fp = fopen(psup_path, "r");
 		if (! psup_fp) {
-			syslog(LOG_ERR, "could not open %s for reading: %s", psup_path,
+			thinkd_log(LOG_ERR, "could not open %s for reading: %s", psup_path,
 			       strerror(errno));
 			continue;
 		}
@@ -73,7 +73,7 @@ int sysfs_read_int(const char *path)
 
 	fp = fopen(path, "r");
 	if (! fp) {
-		syslog(LOG_ERR, "fopen: %d (%s)", errno, strerror(errno));
+		thinkd_log(LOG_ERR, "fopen: %d (%s)", errno, strerror(errno));
 		return 0;
 	}
 
@@ -90,7 +90,7 @@ char *sysfs_read_str(char * dest, size_t len, const char *path)
 	
 	fp = fopen(path, "r");
 	if (! fp) {
-		syslog(LOG_ERR, "fopen: %d (%s)", errno, strerror(errno));
+		thinkd_log(LOG_ERR, "fopen: %d (%s)", errno, strerror(errno));
 		return NULL;
 	}
 
@@ -106,6 +106,12 @@ char *sysfs_read_str(char * dest, size_t len, const char *path)
 	return dest;
 }
 
+void set_nmi_watchdog(bool state)
+{
+	const char *nmi_path = "/proc/sys/kernel/nmi_watchdog";
+	pprintf(nmi_path, "%u", (unsigned int) state);
+}
+
 void load_power_mode(const power_prefs_t *prefs)
 {
 	const int VAL_SIZ = 256;
@@ -116,7 +122,7 @@ void load_power_mode(const power_prefs_t *prefs)
 	/* use glob to search for bluetooth rfkill */
 	if (! glob("/sys/devices/platform/thinkpad_acpi/rfkill/rfkill?/name",
 		 0, NULL, &globbuf) == 0) {
-		syslog(LOG_ERR, "glob: %s", strerror(errno));
+		thinkd_log(LOG_ERR, "glob: %s", strerror(errno));
 		return;
 	}
 		
@@ -151,6 +157,9 @@ void load_power_mode(const power_prefs_t *prefs)
 
 	snprintf(buffer, VAL_SIZ, BACKLIGHT_DIRECTORY "/brightness");
 	pprintf(buffer, "%d", brightness_adjust);
+
+	/* set nmi_watchdog */
+	set_nmi_watchdog(prefs->nmi_watchdog);
 }
 
 static int pprintf(const char *path, const char *format, ...)
@@ -160,8 +169,10 @@ static int pprintf(const char *path, const char *format, ...)
 	int ret;
 	
 	fp = fopen(path, "w");
-	if (! fp)
+	if (! fp) {
+		thinkd_log(LOG_ERR, "can't open file for writing: %s", path);
 		return 0;
+	}
 
 	va_start(args, format);
 	ret = vfprintf(fp, format, args);

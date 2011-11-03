@@ -12,6 +12,7 @@
 #include <signal.h>
 
 #include "config.h"
+#include "logger.h"
 #include "thinkd.h"
 #include "conf_utils.h"
 #include "acpi.h"
@@ -80,7 +81,7 @@ static void detect_psupply_mode()
 	acpi_psupply_t power_supply;
 
 	if ((num_batts = scan_power_supply(&power_supply)) < 0) {
-		syslog(LOG_ERR, "failed to detect acpi power supply information");
+		thinkd_log(LOG_ERR, "failed to detect acpi power supply information");
 		current_mode = &mode_powersave;
 		return;
 	}
@@ -91,7 +92,7 @@ static void detect_psupply_mode()
 	if (state) {
 		if (current_mode == &mode_performance) return;
 		
-		syslog(LOG_INFO, "ac adapater is connected, enabling performance mode");
+		thinkd_log(LOG_INFO, "ac adapater is connected, enabling performance mode");
 		load_power_mode(&mode_performance);
 		current_mode = &mode_performance;
 		sleep_time = AC_SLEEP_TIME;
@@ -103,7 +104,7 @@ static void detect_psupply_mode()
 	if (current_mode == &mode_powersave)
 		return;
 
-	syslog(LOG_INFO, "changing to powersave mode");
+	thinkd_log(LOG_INFO, "changing to powersave mode");
 	load_power_mode(&mode_powersave);
 	current_mode = &mode_powersave;
 	sleep_time = BAT_SLEEP_TIME;
@@ -111,12 +112,16 @@ static void detect_psupply_mode()
 
 static void open_log()
 {
+#ifdef USE_SYSLOG
 	int log_opts;
 
 	log_opts = LOG_NDELAY|LOG_PID|LOG_CONS;
 	openlog(DAEMON_NAME, log_opts, LOG_DAEMON);
-
-	syslog(LOG_INFO, "starting");
+#else
+	thinkd_open_log();
+#endif
+	
+	thinkd_log(LOG_INFO, "starting");
 }
 
 static bool create_pidfile()
@@ -140,14 +145,14 @@ static bool create_pidfile()
 		close(pfd);
 	}
 
-	syslog(LOG_ERR, "could not create pidfile %s (%s)", pidfile, strerror(errno));
+	thinkd_log(LOG_ERR, "could not create pidfile %s (%s)", pidfile, strerror(errno));
 	return false;
 }
 
 static void cleanup_before_exit()
 {
-	syslog(LOG_NOTICE, "exiting");
-	closelog();
+	thinkd_log(LOG_NOTICE, "exiting");
+	thinkd_close_log();
 	unlink(lockfile);
 }
 
@@ -224,7 +229,7 @@ static bool daemonize()
 	if (lockfile && lockfile[0]) {
 		lock_fd = open(lockfile, O_RDWR|O_CREAT|O_EXCL, (mode_t) 0640);
 		if (lock_fd < 0) {
-			syslog(LOG_ERR, "unable to create lock file %s, code=%d (%s)", lockfile, errno, strerror(errno));
+			thinkd_log(LOG_ERR, "unable to create lock file %s, code=%d (%s)", lockfile, errno, strerror(errno));
 			return false;
 		}
 	}
@@ -246,7 +251,7 @@ static bool daemonize()
 	/* create new sid for child process */
 	sid = setsid();
 	if (sid < 0) {
-		syslog(LOG_ERR, "could not set sid");
+		thinkd_log(LOG_ERR, "could not set sid");
 		return false;
 	}
 
@@ -263,7 +268,7 @@ static bool daemonize()
 	
 	/* chdir to root directory */
 	if (chdir("/") < 0) {
-		syslog(LOG_ERR, "cannot into chdir. code %d (%s)", errno, strerror(errno));
+		thinkd_log(LOG_ERR, "cannot into chdir. code %d (%s)", errno, strerror(errno));
 		return false;
 	}
 
@@ -277,14 +282,14 @@ static bool std2null()
 
 	dnull_fd = open("/dev/null", O_RDWR);
 	if (dnull_fd < 0) {
-		syslog(LOG_ERR, "cannot open devnull: %s", strerror(errno));
+		thinkd_log(LOG_ERR, "cannot open devnull: %s", strerror(errno));
 		return false;
 	}
 
 	if (dup2(dnull_fd, STDIN_FILENO) != STDIN_FILENO ||
 	    dup2(dnull_fd, STDOUT_FILENO) != STDOUT_FILENO ||
 	    dup2(dnull_fd, STDERR_FILENO) != STDERR_FILENO) {
-		syslog(LOG_ERR, "dup2: %s", strerror(errno));
+		thinkd_log(LOG_ERR, "dup2: %s", strerror(errno));
 		return false;
 	}
 
