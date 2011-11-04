@@ -15,7 +15,7 @@ BINDIR = $(PREFIX)/bin
 all: $(EXE)
 
 $(EXE): .gitignore $(OBJS)
-	@echo "LINKING\t\t$(OBJS)"	
+	@echo "LINK\t\t$(EXE) <- $(OBJS)"	
 	$(shell echo $@ >>.gitignore)
 	@$(CC) $(CFLAGS) -o $@ $(OBJS)
 	@echo "STRIP\t\t$(EXE)"
@@ -26,7 +26,7 @@ $(EXE): .gitignore $(OBJS)
 	@echo "FLAGS\t\t$(CFLAGS) -c"
 	$(shell echo $@ >>.gitignore)
 	@$(CC) $(CFLAGS) -c -o $@ $<
-	@echo 
+	@echo
 
 .gitignore:
 	$(shell echo .gitignore >$@)

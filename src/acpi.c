@@ -213,7 +213,7 @@ static int pprintf(const char *path, const char *format, ...)
 	
 	fp = fopen(path, "w");
 	if (! fp) {
-		thinkd_log(LOG_ERR, "can't open file for writing: %s", path);
+		thinkd_log(LOG_ERR, LOGERR_MSG(fopen));
 		return 0;
 	}
 

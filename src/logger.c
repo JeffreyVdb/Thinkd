@@ -11,12 +11,6 @@
 
 FILE *err_logfile;
 FILE *info_logfile;
-
-static char *log_paths[] = {
-	LOG_INFO_PATH,
-	LOG_ERR_PATH,
-	NULL,
-};
 	
 static void create_dirs();
 
@@ -26,9 +20,9 @@ void thinkd_open_log()
 	create_dirs();
 
 	/* open the log files */
-	info_logfile = fopen(log_paths[0], "w");
+	info_logfile = fopen(LOG_INFO_PATH, "w");
 	setlinebuf(info_logfile);
-	err_logfile = fopen(log_paths[1], "w");
+	err_logfile = fopen(LOG_ERR_PATH, "w");
 	setlinebuf(err_logfile);
 }
 
@@ -37,9 +31,14 @@ void thinkd_open_log()
 */
 static void create_dirs()
 {
+	const char *log_paths[] = {
+		LOG_INFO_PATH,
+		LOG_ERR_PATH,
+		NULL,
+	};
 	char buffer[1024];
 	
-	for (char **paths = log_paths; *paths; ++paths) {
+	for (const char **paths = log_paths; *paths; ++paths) {
 		DIR *directory;
 		char *dir_sep_ptr;
 
