@@ -11,8 +11,15 @@
 
 #define POWER_SUPPLY_DIRECTORY "/sys/class/power_supply"
 #define BACKLIGHT_DIRECTORY "/sys/class/backlight/acpi_video0"
+#define HDA_INTEL_DIR "/sys/module/snd_hda_intel/"
+
+typedef enum __audio_type {
+	HDA_INTEL,
+	AC97,
+} audio_type_t;
 
 static int pprintf(const char *path, const char *format, ...);
+static void set_audio_state(audio_type_t type, bool state);
 
 int scan_power_supply(acpi_psupply_t *dest)
 {
@@ -112,6 +119,47 @@ void set_nmi_watchdog(bool state)
 	pprintf(nmi_path, "%u", (unsigned int) state);
 }
 
+void set_audio_powersaving(bool state)
+{
+	const char *audio_path_glob = "/sys/module/snd_*";
+	glob_t globbuf;
+	int glob_flags = GLOB_MARK | GLOB_NOSORT | GLOB_ONLYDIR;
+
+	if (glob(audio_path_glob,glob_flags,NULL,&globbuf)) {
+		thinkd_log(LOG_ERR, LOGERR_MSG(glob));
+		return;
+	}
+
+	for (char **p = globbuf.gl_pathv; *p; ++p) {
+		if (! strcmp(*p, HDA_INTEL_DIR))
+			set_audio_state(HDA_INTEL, state);
+	}
+}
+
+static void set_audio_state(audio_type_t type, bool state)
+{
+	switch (type) {
+	case HDA_INTEL: {
+		const size_t BUFFER_SIZE = 512;
+		const char *work_path = HDA_INTEL_DIR "parameters";
+		char buffer[BUFFER_SIZE];
+		
+		snprintf(buffer, BUFFER_SIZE, "%s/%s", work_path, "power_save_controller");
+		pprintf(buffer, "%c", state ? 'Y' : 'N');
+		snprintf(buffer, BUFFER_SIZE, "%s/%s", work_path, "power_save");
+		pprintf(buffer, "%d", state ? 1 : 0);
+		break;
+	}
+	case AC97:
+		thinkd_log(LOG_INFO, "AC97 powersaving not supported");
+		break;
+
+	default:
+		thinkd_log(LOG_ERR, "not found: %d", (int) type);
+		break;
+	}
+}
+
 void load_power_mode(const power_prefs_t *prefs)
 {
 	const int VAL_SIZ = 256;
@@ -160,6 +208,7 @@ void load_power_mode(const power_prefs_t *prefs)
 
 	/* set nmi_watchdog */
 	set_nmi_watchdog(prefs->nmi_watchdog);
+	set_audio_powersaving(prefs->audio_powersave);
 }
 
 static int pprintf(const char *path, const char *format, ...)

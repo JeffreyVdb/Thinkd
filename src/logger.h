@@ -1,6 +1,8 @@
 #ifndef _LOGGER_H_
 #define _LOGGER_H_
 
+#define LOGERR_MSG(key) #key ": %d (%s)", errno, strerror(errno)
+
 #include <syslog.h>
 
 extern void thinkd_open_log();
