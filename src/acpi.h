@@ -11,6 +11,11 @@
 #define MAX_POW_SUPPLY_PATH 128
 #define MAX_BATTERIES 2
 
+typedef enum __audio_type {
+	HDA_INTEL,
+	AC97,
+} audio_type_t;
+
 typedef char sysfs_str_t[MAX_SYSFS_STR_LEN];
 typedef struct __acpi_psupply {
 	char batteries[MAX_BATTERIES][MAX_POW_SUPPLY_PATH];

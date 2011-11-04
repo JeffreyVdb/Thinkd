@@ -12,11 +12,7 @@
 #define POWER_SUPPLY_DIRECTORY "/sys/class/power_supply"
 #define BACKLIGHT_DIRECTORY "/sys/class/backlight/acpi_video0"
 #define HDA_INTEL_DIR "/sys/module/snd_hda_intel/"
-
-typedef enum __audio_type {
-	HDA_INTEL,
-	AC97,
-} audio_type_t;
+#define AC97_DIR "/sys/module/snd_ac97_codec/"
 
 static int pprintf(const char *path, const char *format, ...);
 static void set_audio_state(audio_type_t type, bool state);
@@ -121,18 +117,16 @@ void set_nmi_watchdog(bool state)
 
 void set_audio_powersaving(bool state)
 {
-	const char *audio_path_glob = "/sys/module/snd_*";
-	glob_t globbuf;
-	int glob_flags = GLOB_MARK | GLOB_NOSORT | GLOB_ONLYDIR;
+	DIR *dir;
 
-	if (glob(audio_path_glob,glob_flags,NULL,&globbuf)) {
-		thinkd_log(LOG_ERR, LOGERR_MSG(glob));
-		return;
+	dir = opendir(HDA_INTEL_DIR);
+	if (dir) {
+		set_audio_state(HDA_INTEL, state);
+		closedir(dir);
 	}
-
-	for (char **p = globbuf.gl_pathv; *p; ++p) {
-		if (! strcmp(*p, HDA_INTEL_DIR))
-			set_audio_state(HDA_INTEL, state);
+	else if ((dir = opendir(AC97_DIR))) {
+		set_audio_state(AC97, state);
+		closedir(dir);
 	}
 }
 

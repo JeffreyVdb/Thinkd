@@ -18,11 +18,15 @@ $(EXE): .gitignore $(OBJS)
 	@echo "LINKING\t\t$(OBJS)"	
 	$(shell echo $@ >>.gitignore)
 	@$(CC) $(CFLAGS) -o $@ $(OBJS)
+	@echo "STRIP\t\t$(EXE)"
+	@strip --strip-all $(EXE)
 
 %.o: $(SRCDIR)/%.c
-	@echo "CC\t\t$< -> $@"	
+	@echo "COMPILE\t\t$< to $@"
+	@echo "FLAGS\t\t$(CFLAGS) -c"
 	$(shell echo $@ >>.gitignore)
 	@$(CC) $(CFLAGS) -c -o $@ $<
+	@echo 
 
 .gitignore:
 	$(shell echo .gitignore >$@)
