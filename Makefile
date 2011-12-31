@@ -15,15 +15,15 @@ BINDIR = $(PREFIX)/bin
 all: $(EXE)
 
 $(EXE): .gitignore $(OBJS)
-	@echo "LINK\t\t$(EXE) <- $(OBJS)"	
+	@echo "LINK $(EXE) <- $(OBJS)"	
 	$(shell echo $@ >>.gitignore)
 	@$(CC) $(CFLAGS) -o $@ $(OBJS)
-	@echo "STRIP\t\t$(EXE)"
+	@echo "STRIP $(EXE)"
 	@strip --strip-all $(EXE)
 
 %.o: $(SRCDIR)/%.c
-	@echo "COMPILE\t\t$< to $@"
-	@echo "FLAGS\t\t$(CFLAGS) -c"
+	@echo "COMPILE $< to $@"
+	@echo "FLAGS $(CFLAGS) -c"
 	$(shell echo $@ >>.gitignore)
 	@$(CC) $(CFLAGS) -c -o $@ $<
 	@echo

@@ -10,6 +10,7 @@
 #include <syslog.h>
 #include <errno.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include "config.h"
 #include "logger.h"
@@ -25,6 +26,7 @@ static const char *pidfile = THINKD_PIDFILE;
 static power_prefs_t *current_mode = NULL;
 static int sleep_time = BAT_SLEEP_TIME;
 static bool probing = true;
+static pthread_mutex_t conf_mutex;
 
 /* Display help with options */
 static void handle_cmd_args(int *argc, char ***argv);
@@ -35,7 +37,9 @@ static void clean_and_exit();
 static void cleanup_before_exit();
 static bool create_pidfile();
 static void detect_psupply_mode();
+static void load_psupply_mode(power_prefs_t *prefs);
 static void print_usage(const struct option *opts, const char **opt_help);
+static void load_config();
 
 int main(int argc, char *argv[])
 {	
@@ -49,7 +53,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* read in configuration */
-	read_ini();
+	load_config();
 
 	/* initialize power_supply before loop */
 	detect_psupply_mode();
@@ -73,6 +77,44 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+static void load_config()
+{	
+	/* Try to initialize the mutex */
+	if (pthread_mutex_init(&conf_mutex, NULL)) {
+		LOG_SIMPLE_ERR( FATAL );
+		kill(getpid(), SIGTERM);
+	}
+
+	pthread_mutex_lock(&conf_mutex);
+	read_ini();
+	pthread_mutex_unlock(&conf_mutex);
+
+	if (current_mode)
+		load_psupply_mode(current_mode);
+}
+
+static void load_psupply_mode(power_prefs_t *prefs)
+{
+	if (prefs == &mode_powersave) {
+		thinkd_log(LOG_INFO, "changing to powersave mode");
+		sleep_time = BAT_SLEEP_TIME;
+	}
+	else if (prefs == &mode_performance) {
+		thinkd_log(LOG_INFO, "ac adapater is connected, enabling performance mode");
+		sleep_time = AC_SLEEP_TIME;
+	}
+	else {
+		thinkd_log(LOG_INFO, "Mode unrecognized, setting sleep time to default");
+		sleep_time = BAT_SLEEP_TIME;
+		return;
+	}
+	
+	pthread_mutex_lock(&conf_mutex);
+	load_power_mode(prefs);
+	current_mode = prefs;
+	pthread_mutex_unlock(&conf_mutex);
+}
+
 static void detect_psupply_mode()
 {
 	char buffer[256];
@@ -82,7 +124,7 @@ static void detect_psupply_mode()
 
 	if ((num_batts = scan_power_supply(&power_supply)) < 0) {
 		thinkd_log(LOG_ERR, "failed to detect acpi power supply information");
-		current_mode = &mode_powersave;
+		load_psupply_mode(&mode_powersave);
 		return;
 	}
 
@@ -91,11 +133,7 @@ static void detect_psupply_mode()
 	state = sysfs_read_int(buffer);
 	if (state) {
 		if (current_mode == &mode_performance) return;
-		
-		thinkd_log(LOG_INFO, "ac adapater is connected, enabling performance mode");
-		load_power_mode(&mode_performance);
-		current_mode = &mode_performance;
-		sleep_time = AC_SLEEP_TIME;
+		load_psupply_mode(&mode_performance);
 
 		return;
 	}
@@ -104,10 +142,7 @@ static void detect_psupply_mode()
 	if (current_mode == &mode_powersave)
 		return;
 
-	thinkd_log(LOG_INFO, "changing to powersave mode");
-	load_power_mode(&mode_powersave);
-	current_mode = &mode_powersave;
-	sleep_time = BAT_SLEEP_TIME;
+	load_psupply_mode(&mode_powersave);
 }
 
 static void open_log()
@@ -152,6 +187,7 @@ static bool create_pidfile()
 static void cleanup_before_exit()
 {
 	thinkd_log(LOG_NOTICE, "exiting");
+	pthread_mutex_destroy(&conf_mutex);
 	thinkd_close_log();
 	unlink(lockfile);
 }
@@ -265,6 +301,10 @@ static bool daemonize()
 	sigaction(SIGINT, &s_action, NULL);
 	sigaction(SIGTERM, &s_action, NULL);
 	sigaction(SIGQUIT, &s_action, NULL);
+
+	/* SIGUSR1 to reload configuration */
+	s_action.sa_handler = load_config;
+	sigaction(SIGUSR1, &s_action, NULL);
 	
 	/* chdir to root directory */
 	if (chdir("/") < 0) {
