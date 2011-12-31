@@ -22,13 +22,13 @@
 static const char *lockfile = THINKD_LOCKFILE;
 static const char *pidfile = THINKD_PIDFILE;
 
-/* default mode is powersave */
+/* static variables */
 static power_prefs_t *current_mode = NULL;
 static int sleep_time = BAT_SLEEP_TIME;
 static bool probing = true;
 static pthread_mutex_t conf_mutex;
 
-/* Display help with options */
+/* function prototypes */
 static void handle_cmd_args(int *argc, char ***argv);
 static void open_log();
 static bool daemonize();
@@ -79,16 +79,19 @@ int main(int argc, char *argv[])
 
 static void load_config()
 {	
-	/* Try to initialize the mutex */
+	/* Try to initialize the mutex
+	   if no mutex can't be acquired, program won't
+	   function properly, exit immediately */
 	if (pthread_mutex_init(&conf_mutex, NULL)) {
-		LOG_SIMPLE_ERR( FATAL );
-		kill(getpid(), SIGTERM);
+		LOG_SIMPLE_ERR("FATAL");
+		clean_and_exit();
 	}
 
 	pthread_mutex_lock(&conf_mutex);
 	read_ini();
 	pthread_mutex_unlock(&conf_mutex);
 
+	/* Load mode if one is already set by detect_psupply_mode() */
 	if (current_mode)
 		load_psupply_mode(current_mode);
 }
@@ -134,7 +137,6 @@ static void detect_psupply_mode()
 	if (state) {
 		if (current_mode == &mode_performance) return;
 		load_psupply_mode(&mode_performance);
-
 		return;
 	}
 
@@ -297,7 +299,8 @@ static bool daemonize()
 	s_action.sa_handler = clean_and_exit;
 	sigemptyset(&s_action.sa_mask);
 	s_action.sa_flags = 0;
-	
+
+	/* clean exit when these signals are sent */
 	sigaction(SIGINT, &s_action, NULL);
 	sigaction(SIGTERM, &s_action, NULL);
 	sigaction(SIGQUIT, &s_action, NULL);
@@ -326,6 +329,8 @@ static bool std2null()
 		return false;
 	}
 
+	/* redirect standard file handles to /dev/null
+	   to prevent accidental output where not wished */
 	if (dup2(dnull_fd, STDIN_FILENO) != STDIN_FILENO ||
 	    dup2(dnull_fd, STDOUT_FILENO) != STDOUT_FILENO ||
 	    dup2(dnull_fd, STDERR_FILENO) != STDERR_FILENO) {

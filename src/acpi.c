@@ -213,7 +213,7 @@ static int pprintf(const char *path, const char *format, ...)
 	
 	fp = fopen(path, "w");
 	if (! fp) {
-		thinkd_log(LOG_ERR, LOGERR_MSG(fopen));
+		LOG_SIMPLE_ERR("fopen");
 		return 0;
 	}
 
