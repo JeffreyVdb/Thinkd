@@ -53,16 +53,21 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	/* Try to initialize the config mutex */
+	if (pthread_mutex_init(&conf_mutex, NULL)) {
+		LOG_SIMPLE_ERR("FATAL");
+		clean_and_exit();
+	}
+	
 	/* read in configuration */
 	load_config();
 
-	/* initialize power_supply before loop */
+	/* initial detecting of power supply */
 	detect_psupply_mode();
 
 	/*
 	  TODO: start thread listening
-	*/
-	
+	*/	
 	if (! probing) {
 		/* TODO: */
 		/* simply wait for thread to end */
@@ -80,14 +85,6 @@ int main(int argc, char *argv[])
 
 static void load_config()
 {	
-	/* Try to initialize the mutex
-	   if no mutex can't be acquired, program won't
-	   function properly, exit immediately */
-	if (pthread_mutex_init(&conf_mutex, NULL)) {
-		LOG_SIMPLE_ERR("FATAL");
-		clean_and_exit();
-	}
-
 	pthread_mutex_lock(&conf_mutex);
 	read_ini();
 	pthread_mutex_unlock(&conf_mutex);
@@ -117,7 +114,6 @@ static void load_psupply_mode(power_prefs_t *prefs)
 	load_power_mode(prefs);
 	current_mode = prefs;
 	pthread_mutex_unlock(&conf_mutex);
-	pthread_mutex_destroy(&conf_mutex);
 }
 
 static void detect_psupply_mode()
@@ -207,6 +203,7 @@ static void cleanup_before_exit()
 {
 	thinkd_log(LOG_NOTICE, "exiting");
 	thinkd_close_log();
+	pthread_mutex_destroy(&conf_mutex);
 	unlink(lockfile);
 }
 
