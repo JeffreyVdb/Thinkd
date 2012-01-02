@@ -40,6 +40,7 @@ static void detect_psupply_mode();
 static void load_psupply_mode(power_prefs_t *prefs);
 static void print_usage(const struct option *opts, const char **opt_help);
 static void load_config();
+static void validate_user();
 
 int main(int argc, char *argv[])
 {	
@@ -116,6 +117,7 @@ static void load_psupply_mode(power_prefs_t *prefs)
 	load_power_mode(prefs);
 	current_mode = prefs;
 	pthread_mutex_unlock(&conf_mutex);
+	pthread_mutex_destroy(&conf_mutex);
 }
 
 static void detect_psupply_mode()
@@ -147,6 +149,18 @@ static void detect_psupply_mode()
 	load_psupply_mode(&mode_powersave);
 }
 
+static void validate_user()
+{
+	const uid_t required_uid = 0;
+	if ((geteuid()) == required_uid)
+		return;
+
+	thinkd_log(LOG_ERR, "uid %d is required to run this process",
+		   (int) required_uid);
+	cleanup_before_exit();
+	exit(EXIT_FAILURE);
+}
+
 static void open_log()
 {
 #ifdef USE_SYSLOG
@@ -155,7 +169,10 @@ static void open_log()
 	log_opts = LOG_NDELAY|LOG_PID|LOG_CONS;
 	openlog(DAEMON_NAME, log_opts, LOG_DAEMON);
 #else
-	thinkd_open_log();
+	if (thinkd_open_log()) {
+		PRINT_SIMPLE_ERR("FOPEN");
+		exit(EXIT_FAILURE);
+	}
 #endif
 	
 	thinkd_log(LOG_INFO, "starting");
@@ -189,7 +206,6 @@ static bool create_pidfile()
 static void cleanup_before_exit()
 {
 	thinkd_log(LOG_NOTICE, "exiting");
-	pthread_mutex_destroy(&conf_mutex);
 	thinkd_close_log();
 	unlink(lockfile);
 }
@@ -216,7 +232,7 @@ static void handle_cmd_args(int *argc, char ***argv)
 		"do not try detecting the power mode" /* no-probe */
 	};
 
-	while ((c = getopt_long(*argc, *argv, "hn", opts, &option_index)) != -1) {
+	while ((c = getopt_long(*argc, *argv, "hvn", opts, &option_index)) != -1) {
 		switch (c) {
 		case 0:
 			/* this option sets a flag */
@@ -225,6 +241,7 @@ static void handle_cmd_args(int *argc, char ***argv)
 			/* stop detecting power mode */
 			probing = false;
 			break;
+		case 'v':
 		case 'h':
 			print_usage(opts, opts_help);
 			clean_and_exit();
@@ -262,6 +279,9 @@ static bool daemonize()
 	struct sigaction s_action;
 	pid_t pid, sid;
 	int lock_fd;
+
+	/* Make sure the required user runs this process */
+	validate_user();
 
 	/* attempt to create the lockfile */
 	if (lockfile && lockfile[0]) {

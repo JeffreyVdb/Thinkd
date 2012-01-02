@@ -14,16 +14,20 @@ FILE *info_logfile;
 	
 static void create_dirs();
 
-void thinkd_open_log()
+int thinkd_open_log()
 {	
 	/* check if directory exists */
 	create_dirs();
 
 	/* open the log files */
 	info_logfile = fopen(LOG_INFO_PATH, "w");
-	setlinebuf(info_logfile);
 	err_logfile = fopen(LOG_ERR_PATH, "w");
+	if (!info_logfile || !err_logfile)
+		return 1;
+	
 	setlinebuf(err_logfile);
+	setlinebuf(info_logfile);
+	return 0;
 }
 
 /*
@@ -71,16 +75,15 @@ void thinkd_close_log()
 
 void thinkd_log(int priority, const char *format, ...)
 {
-#ifndef USE_SYSLOG
-	size_t format_len;
-	char * newl_format;
 	va_list args;
-#endif
 	
 	va_start(args, format);
 #ifdef USE_SYSLOG
 	vsyslog(priority,format,args);
 #else
+	size_t format_len;
+	char * newl_format;
+	
 	/* we need to add an extra newline character */
 	format_len = strlen(format);
 	newl_format = (char *) calloc(format_len + 2, sizeof(char));
