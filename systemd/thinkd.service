@@ -1,0 +1,11 @@
+[Unit]
+Description=ThinkD power manager
+After=acpid.target
+
+[Service]
+Type=forking
+EnvironmentFile=/etc/sysconfig/thinkd
+ExecStart=/usr/local/bin/thinkd $OPTIONS
+
+[Install]
+WantedBy=multi-user.target
