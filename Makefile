@@ -11,6 +11,7 @@ INITDIR = init.d
 REAL_SRCS = $(addprefix $(SRCDIR)/, $(SRCS))
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
+SYSTEMD_DIR = /lib/systemd/system
 
 all: $(EXE)
 
@@ -31,7 +32,11 @@ $(EXE): .gitignore $(OBJS)
 .gitignore:
 	$(shell echo .gitignore >$@)
 
-.PHONY: all clean killd install
+.PHONY: all clean killd install etags
+
+etags:
+	@echo "generating etags"
+	-@$(shell cd $(SRCDIR) && etags *.c *.h)
 
 killd:
 	@echo "killing daemon"
@@ -42,5 +47,11 @@ clean:
 
 install: $(EXE)
 	install -m 0755 $(EXE) $(BINDIR)
+ifeq ($(shell uname -r | egrep -q "fc1[6-9]+" && echo 1),1)
+	@echo "Detected fedora 16+"
+	install -m 0755 systemd/$(EXE).service /lib/systemd/system
+	systemctl enable $(EXE).service
+else
 	install -m 0755 $(INITDIR)/$(EXE) /etc/init.d
 	install -m 0644 thinkd.ini /etc
+endif
