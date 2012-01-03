@@ -35,7 +35,7 @@ $(EXE): .gitignore $(OBJS)
 
 killd:
 	@echo "killing daemon"
-	-@$(shell sudo kill $(shell sudo cat /var/run/thinkd.pid))
+	-@$(shell sudo kill -s SIGTERM $(shell sudo cat /var/run/thinkd.pid))
 
 clean:
 	$(RM) $(OBJS) $(EXE) .gitignore

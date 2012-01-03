@@ -1,29 +1,67 @@
+#define _BSD_SOURCE 1
+
 #include "logger.h"
 #include "config.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <time.h>
+#include <errno.h>
 
-FILE *err_logfile;
-FILE *info_logfile;
+#define STATIC_ARRAY_LEN(arr, type) (sizeof(arr) / sizeof(type))
+#define try_lock_log_files() __lock_log_files(LOCK_EX | LOCK_NB)
+#define unlock_log_files() __lock_log_files(LOCK_UN | LOCK_NB)
+
+static FILE *err_logfile;
+static FILE *info_logfile;
 	
 static void create_dirs();
+static int __lock_log_files(int mode);
 
+/*
+  TODO: implement deletion of log file after certain size
+*/
 int thinkd_open_log()
-{	
+{
+	FILE *nullfh;
+	
 	/* check if directory exists */
 	create_dirs();
 
 	/* open the log files */
-	info_logfile = fopen(LOG_INFO_PATH, "w");
-	err_logfile = fopen(LOG_ERR_PATH, "w");
+	info_logfile = fopen(LOG_INFO_PATH, "a");
+	err_logfile = fopen(LOG_ERR_PATH, "a");
 	if (!info_logfile || !err_logfile)
 		return 1;
+
+	if ((try_lock_log_files()) != 0) { /* can't get LOCK */
+		int fds[2], i, nullfd;
+		
+		nullfh = fopen("/dev/null", "w");
+		if (! nullfh) {
+			PRINT_SIMPLE_ERR("FOPEN");
+			return 1;
+		}
+
+		fds[0] = fileno(info_logfile);
+		fds[1] = fileno(err_logfile);
+		nullfd = fileno(nullfh);
+
+		/* redirect log files to void */
+		for (i = 0; i < STATIC_ARRAY_LEN(fds,int); ++i) {
+			if ((dup2(nullfd, fds[i])) != fds[i]) 
+				PRINT_SIMPLE_ERR("dup2");
+		}			
+		
+		return 1;
+	}
 	
 	setlinebuf(err_logfile);
 	setlinebuf(info_logfile);
@@ -60,6 +98,24 @@ static void create_dirs()
 	}
 }
 
+static int __lock_log_files(int mode)
+{
+	int fds[2];
+	int i;
+	
+	fds[0] = fileno(info_logfile);
+	fds[1] = fileno(err_logfile);
+
+        for (i = 0; i < STATIC_ARRAY_LEN(fds,int); ++i) {
+		if ((flock(fds[i], mode)) == -1) {
+			PRINT_SIMPLE_ERR("LOCK");
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 void thinkd_close_log()
 {
 #ifdef USE_SYSLOG
@@ -68,6 +124,9 @@ void thinkd_close_log()
 	if (!err_logfile || !info_logfile)
 		return;
 
+	/* raise locks from files */
+	unlock_log_files();
+	
 	fclose(err_logfile);
 	fclose(info_logfile);
 #endif

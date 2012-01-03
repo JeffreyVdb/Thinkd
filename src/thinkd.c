@@ -16,7 +16,7 @@
 #include "logger.h"
 #include "thinkd.h"
 #include "conf_utils.h"
-#include "acpi.h"
+#include "acpi.h"		
 
 /* constants */
 static const char *lockfile = THINKD_LOCKFILE;
@@ -30,7 +30,7 @@ static pthread_mutex_t conf_mutex;
 
 /* function prototypes */
 static void handle_cmd_args(int *argc, char ***argv);
-static void open_log();
+static int open_log();
 static bool daemonize();
 static bool std2null();
 static void clean_and_exit();
@@ -41,14 +41,12 @@ static void load_psupply_mode(power_prefs_t *prefs);
 static void print_usage(const struct option *opts, const char **opt_help);
 static void load_config();
 static void validate_user();
+static void ipc_listen();
 
 int main(int argc, char *argv[])
 {	
-	/* open logging interface first off */
-	open_log();
-	
 	handle_cmd_args(&argc, &argv);
-	if (! daemonize()) {
+	if (open_log() || ! daemonize()) {
 		cleanup_before_exit();
 		return 1;
 	}
@@ -65,12 +63,9 @@ int main(int argc, char *argv[])
 	/* initial detecting of power supply */
 	detect_psupply_mode();
 
-	/*
-	  TODO: start thread listening
-	*/	
+	/* Listen for IPC requests */
 	if (! probing) {
-		/* TODO: */
-		/* simply wait for thread to end */
+		ipc_listen();
 		return 0;
 	}
 
@@ -81,136 +76,6 @@ int main(int argc, char *argv[])
 	}
 	
 	return 0;
-}
-
-static void load_config()
-{	
-	pthread_mutex_lock(&conf_mutex);
-	read_ini();
-	pthread_mutex_unlock(&conf_mutex);
-
-	/* Load mode if one is already set by detect_psupply_mode() */
-	if (current_mode)
-		load_psupply_mode(current_mode);
-}
-
-static void load_psupply_mode(power_prefs_t *prefs)
-{
-	if (prefs == &mode_powersave) {
-		thinkd_log(LOG_INFO, "Battery found. Enabling powersave mode");
-		sleep_time = BAT_SLEEP_TIME;
-	}
-	else if (prefs == &mode_performance) {
-		thinkd_log(LOG_INFO, "AC adapater is connected. Enabling performance mode");
-		sleep_time = AC_SLEEP_TIME;
-	}
-	else {
-		thinkd_log(LOG_INFO, "Mode unrecognized, setting sleep time to default");
-		sleep_time = BAT_SLEEP_TIME;
-		return;
-	}
-	
-	pthread_mutex_lock(&conf_mutex);
-	load_power_mode(prefs);
-	current_mode = prefs;
-	pthread_mutex_unlock(&conf_mutex);
-}
-
-static void detect_psupply_mode()
-{
-	char buffer[256];
-	int state;
-	int num_batts;
-	acpi_psupply_t power_supply;
-
-	if ((num_batts = scan_power_supply(&power_supply)) < 0) {
-		thinkd_log(LOG_ERR, "failed to detect acpi power supply information");
-		load_psupply_mode(&mode_powersave);
-		return;
-	}
-
-	/* check if ac adapter is online */
-	snprintf(buffer, 256, "%s/%s", power_supply.acdir, "online");
-	state = sysfs_read_int(buffer);
-	if (state) {
-		if (current_mode == &mode_performance) return;
-		load_psupply_mode(&mode_performance);
-		return;
-	}
-
-	/* battery is connected */
-	if (current_mode == &mode_powersave)
-		return;
-
-	load_psupply_mode(&mode_powersave);
-}
-
-static void validate_user()
-{
-	const uid_t required_uid = 0;
-	if ((geteuid()) == required_uid)
-		return;
-
-	thinkd_log(LOG_ERR, "uid %d is required to run this process",
-		   (int) required_uid);
-	cleanup_before_exit();
-	exit(EXIT_FAILURE);
-}
-
-static void open_log()
-{
-#ifdef USE_SYSLOG
-	int log_opts;
-
-	log_opts = LOG_NDELAY|LOG_PID|LOG_CONS;
-	openlog(DAEMON_NAME, log_opts, LOG_DAEMON);
-#else
-	if (thinkd_open_log()) {
-		PRINT_SIMPLE_ERR("FOPEN");
-		exit(EXIT_FAILURE);
-	}
-#endif
-	
-	thinkd_log(LOG_INFO, "%s is starting.", DAEMON_NAME);
-}
-
-static bool create_pidfile()
-{
-	int pfd;
-
-	/* delete pidfile if it exists */
-	unlink(pidfile);
-	
-	/* check if the pidfile is defined */
-	pfd = open(pidfile, O_WRONLY|O_CREAT|O_EXCL);
-	if (pfd >= 0) {
-		FILE *pfp;
-		pfp = fdopen(pfd, "w");
-		if (pfp) {
-			fprintf(pfp, "%d\n", getpid());
-			fclose(pfp);
-
-			return true; /* leave pidfile open */
-		}
-		close(pfd);
-	}
-
-	thinkd_log(LOG_ERR, "could not create pidfile %s (%s)", pidfile, strerror(errno));
-	return false;
-}
-
-static void cleanup_before_exit()
-{
-	thinkd_log(LOG_NOTICE, "exiting");
-	thinkd_close_log();
-	pthread_mutex_destroy(&conf_mutex);
-	unlink(lockfile);
-}
-
-static void clean_and_exit()
-{
-	cleanup_before_exit();
-	exit(EXIT_SUCCESS);
 }
 
 static void handle_cmd_args(int *argc, char ***argv)
@@ -254,23 +119,25 @@ static void handle_cmd_args(int *argc, char ***argv)
 	}
 }
 
-static void print_usage(const struct option *opts, const char **opt_help)
+static int open_log()
 {
-	const struct option *opt;
-	const char **help;
-	size_t longest_opt = (size_t) 0, siz;
+	int retval = 0;
 	
-	/* find longest options */
-	for (opt = opts; opt->name; ++opt) {
-		if ((siz = strlen(opt->name)) > longest_opt)
-			longest_opt = siz;
-	}
+#ifdef USE_SYSLOG
+	int log_opts;
 
-	fprintf(stdout, "Usage for %s\n\nOPTIONS:\n", DAEMON_NAME);
-	for (opt = opts, help = opt_help; opt->name; ++opt, ++help) {
-		fprintf(stdout, "\t-%-5c --%-*s\t%s\n",
-			opt->val, (int) longest_opt, opt->name, *help);
+	log_opts = LOG_NDELAY|LOG_PID|LOG_CONS;
+	openlog(DAEMON_NAME, log_opts, LOG_DAEMON);
+#else	
+	if ((retval = thinkd_open_log()) != 0) {
+		PRINT_SIMPLE_ERR("OPEN_LOG");
+		return retval;
 	}
+#endif
+	
+	thinkd_log(LOG_INFO, "%s is starting, process %d (undaemonized).",
+		   DAEMON_NAME, (int) getpid());
+	return retval;
 }
 
 static bool daemonize()
@@ -286,7 +153,8 @@ static bool daemonize()
 	if (lockfile && lockfile[0]) {
 		lock_fd = open(lockfile, O_RDWR|O_CREAT|O_EXCL, (mode_t) 0640);
 		if (lock_fd < 0) {
-			thinkd_log(LOG_ERR, "unable to create lock file %s, code=%d (%s)", lockfile, errno, strerror(errno));
+			lockfile = NULL;
+			PRINT_SIMPLE_ERR("unable to create lock file");
 			return false;
 		}
 	}
@@ -342,7 +210,7 @@ static bool std2null()
 {
 	int dnull_fd;
 
-	dnull_fd = open("/dev/null", O_RDWR);
+	dnull_fd = open("/dev/null", O_RDWR, (mode_t) 0600);
 	if (dnull_fd < 0) {
 		thinkd_log(LOG_ERR, "cannot open devnull: %s", strerror(errno));
 		return false;
@@ -360,4 +228,145 @@ static bool std2null()
 	close(dnull_fd);
 
 	return true;
+}
+
+static void clean_and_exit()
+{
+	cleanup_before_exit();
+	exit(EXIT_SUCCESS);
+}
+
+static void cleanup_before_exit()
+{
+	thinkd_log(LOG_NOTICE, "%s process %d is stopping",
+		   DAEMON_NAME, (int) getpid());
+	thinkd_close_log();
+	pthread_mutex_destroy(&conf_mutex);
+	if (lockfile)
+		unlink(lockfile);
+}
+
+static bool create_pidfile()
+{
+	int pfd;
+
+	/* delete pidfile if it exists */
+	unlink(pidfile);
+	
+	/* check if the pidfile is defined */
+	pfd = open(pidfile, O_WRONLY|O_CREAT|O_EXCL);
+	if (pfd >= 0) {
+		FILE *pfp;
+		pfp = fdopen(pfd, "w");
+		if (pfp) {
+			fprintf(pfp, "%d\n", getpid());
+			fclose(pfp);
+
+			return true; /* leave pidfile open */
+		}
+		close(pfd);
+	}
+
+	thinkd_log(LOG_ERR, "could not create pidfile %s (%s)", pidfile, strerror(errno));
+	return false;
+}
+
+static void detect_psupply_mode()
+{
+	char buffer[256];
+	int state;
+	int num_batts;
+	acpi_psupply_t power_supply;
+
+	if ((num_batts = scan_power_supply(&power_supply)) < 0) {
+		thinkd_log(LOG_ERR, "failed to detect acpi power supply information");
+		load_psupply_mode(&mode_powersave);
+		return;
+	}
+
+	/* check if ac adapter is online */
+	snprintf(buffer, 256, "%s/%s", power_supply.acdir, "online");
+	state = sysfs_read_int(buffer);
+	if (state) {
+		if (current_mode == &mode_performance) return;
+		load_psupply_mode(&mode_performance);
+		return;
+	}
+
+	/* battery is connected */
+	if (current_mode == &mode_powersave)
+		return;
+
+	load_psupply_mode(&mode_powersave);
+}
+
+static void load_psupply_mode(power_prefs_t *prefs)
+{
+	if (prefs == &mode_powersave) {
+		thinkd_log(LOG_INFO, "Battery found. Enabling powersave mode");
+		sleep_time = BAT_SLEEP_TIME;
+	}
+	else if (prefs == &mode_performance) {
+		thinkd_log(LOG_INFO, "AC adapater is connected. Enabling performance mode");
+		sleep_time = AC_SLEEP_TIME;
+	}
+	else {
+		thinkd_log(LOG_INFO, "Mode unrecognized, setting sleep time to default");
+		sleep_time = BAT_SLEEP_TIME;
+		return;
+	}
+	
+	pthread_mutex_lock(&conf_mutex);
+	load_power_mode(prefs);
+	current_mode = prefs;
+	pthread_mutex_unlock(&conf_mutex);
+}
+
+static void print_usage(const struct option *opts, const char **opt_help)
+{
+	const struct option *opt;
+	const char **help;
+	size_t longest_opt = (size_t) 0, siz;
+	
+	/* find longest options */
+	for (opt = opts; opt->name; ++opt) {
+		if ((siz = strlen(opt->name)) > longest_opt)
+			longest_opt = siz;
+	}
+
+	fprintf(stdout, "Usage for %s\n\nOPTIONS:\n", DAEMON_NAME);
+	for (opt = opts, help = opt_help; opt->name; ++opt, ++help) {
+		fprintf(stdout, "\t-%-5c --%-*s\t%s\n",
+			opt->val, (int) longest_opt, opt->name, *help);
+	}
+}
+
+static void load_config()
+{	
+	pthread_mutex_lock(&conf_mutex);
+	read_ini();
+	pthread_mutex_unlock(&conf_mutex);
+
+	/* Load mode if one is already set by detect_psupply_mode() */
+	if (current_mode)
+		load_psupply_mode(current_mode);
+}
+
+static void validate_user()
+{
+	const uid_t required_uid = 0;
+	if ((geteuid()) == required_uid)
+		return;
+
+	thinkd_log(LOG_ERR, "uid %d is required to run this process",
+		   (int) required_uid);
+	cleanup_before_exit();
+	exit(EXIT_FAILURE);
+}
+
+static void ipc_listen()
+{
+	while (0) {
+		/* wait for incoming socket requests */
+	}
 }
