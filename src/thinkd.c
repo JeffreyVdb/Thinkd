@@ -97,11 +97,11 @@ static void load_config()
 static void load_psupply_mode(power_prefs_t *prefs)
 {
 	if (prefs == &mode_powersave) {
-		thinkd_log(LOG_INFO, "changing to powersave mode");
+		thinkd_log(LOG_INFO, "Battery found. Enabling powersave mode");
 		sleep_time = BAT_SLEEP_TIME;
 	}
 	else if (prefs == &mode_performance) {
-		thinkd_log(LOG_INFO, "ac adapater is connected, enabling performance mode");
+		thinkd_log(LOG_INFO, "AC adapater is connected. Enabling performance mode");
 		sleep_time = AC_SLEEP_TIME;
 	}
 	else {
@@ -171,7 +171,7 @@ static void open_log()
 	}
 #endif
 	
-	thinkd_log(LOG_INFO, "starting");
+	thinkd_log(LOG_INFO, "%s is starting.", DAEMON_NAME);
 }
 
 static bool create_pidfile()
@@ -239,6 +239,8 @@ static void handle_cmd_args(int *argc, char ***argv)
 			probing = false;
 			break;
 		case 'v':
+			printf("%s %s\n", DAEMON_NAME, DAEMON_VERSION);
+			clean_and_exit();
 		case 'h':
 			print_usage(opts, opts_help);
 			clean_and_exit();

@@ -13,6 +13,11 @@
 #define OFFSET_OF(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #define MAX_SECTION_LEN 512
 #define MAX_KEYVAL_LEN 512
+#define load_section(name, fh, mode)			\
+	do { \
+		thinkd_log(LOG_INFO, "LOADING SECTION [%s]", name); \
+		read_section(fh, mode); \
+	} while (0)
 
 /* variables */
 static ini_table_t **search_tab;
@@ -61,13 +66,13 @@ int read_ini()
 		*brackp = '\0';
 		
 		if (strcmp(bptr, "powersave") == 0)
-			read_section(ini_fp, &mode_powersave);
+			load_section(bptr, ini_fp, &mode_powersave);
 		else if (strcmp(bptr, "performance") == 0)
-			read_section(ini_fp, &mode_performance);
+			load_section(bptr, ini_fp, &mode_performance);
 		else if (strcmp(bptr, "critical") == 0)
-			read_section(ini_fp, &mode_critical);
+			load_section(bptr, ini_fp, &mode_critical);
 		else if (strcmp(bptr, "heavy_powersave") == 0)
-			read_section(ini_fp, &mode_heavy_powersave);	
+			load_section(bptr, ini_fp, &mode_heavy_powersave);	
 	}
 
 	fclose(ini_fp);
@@ -159,7 +164,7 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 
 			*newl_pch = '\0';
 			
-			thinkd_log(LOG_INFO, "found %s in ini file with value %s.", buffer, val_pch);
+			thinkd_log(LOG_INFO, "SET %s = %s", buffer, val_pch);
 			search_tab[idx]->handler((char *) prefs + search_tab[idx]->store_offset,
 						 val_pch);
 			
