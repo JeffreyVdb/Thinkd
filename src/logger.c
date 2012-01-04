@@ -25,12 +25,11 @@ static FILE *info_logfile;
 static void create_dirs();
 static int __lock_log_files(int mode);
 
-/*
-  TODO: implement deletion of log file after certain size
-*/
 int thinkd_open_log()
 {
+	int fds[2], i;
 	FILE *nullfh;
+	struct stat logstat;
 	
 	/* check if directory exists */
 	create_dirs();
@@ -41,17 +40,17 @@ int thinkd_open_log()
 	if (!info_logfile || !err_logfile)
 		return 1;
 
+	fds[0] = fileno(info_logfile);
+	fds[1] = fileno(err_logfile);
 	if ((try_lock_log_files()) != 0) { /* can't get LOCK */
-		int fds[2], i, nullfd;
+		int nullfd;
 		
 		nullfh = fopen("/dev/null", "w");
 		if (! nullfh) {
 			PRINT_SIMPLE_ERR("FOPEN");
 			return 1;
 		}
-
-		fds[0] = fileno(info_logfile);
-		fds[1] = fileno(err_logfile);
+		
 		nullfd = fileno(nullfh);
 
 		/* redirect log files to void */
@@ -59,8 +58,19 @@ int thinkd_open_log()
 			if ((dup2(nullfd, fds[i])) != fds[i]) 
 				PRINT_SIMPLE_ERR("dup2");
 		}			
-		
+
+		fclose(nullfh);
 		return 1;
+	}
+
+	/* at this point the lock is ours */
+	for (i = 0; i < STATIC_ARRAY_LEN(fds, int); ++i) {
+		fstat(fds[i], &logstat);
+		if (logstat.st_size > MAX_LOG_SIZE) {
+			freopen(LOG_INFO_PATH, "w", info_logfile);
+			freopen(LOG_ERR_PATH, "w", err_logfile);
+			break;
+		}
 	}
 	
 	setlinebuf(err_logfile);

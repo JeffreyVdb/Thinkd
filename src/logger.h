@@ -4,8 +4,10 @@
 #define LOGERR_FORMAT(key) key ": %d (%s)"
 #define LOGERR_MSG(key) LOGERR_FORMAT(key), errno, strerror(errno)
 #define LOG_SIMPLE_ERR(mesg) thinkd_log(LOG_ERR, LOGERR_MSG(mesg))
-#define PRINT_SIMPLE_ERR(mesg) \
+#define PRINT_SIMPLE_ERR(mesg)						\
 	fprintf(stderr, LOGERR_FORMAT(mesg) "\n", errno, strerror(errno))
+
+#define MAX_LOG_SIZE 8192
 
 #include <syslog.h>
 

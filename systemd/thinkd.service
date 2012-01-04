@@ -4,8 +4,10 @@ After=acpid.target
 
 [Service]
 Type=forking
+PIDFile=/var/run/thinkd.pid
 EnvironmentFile=/etc/sysconfig/thinkd
 ExecStart=/usr/local/bin/thinkd $OPTIONS
+ExecReload=/bin/kill -s SIGUSR1 $MAINPID
 
 [Install]
 WantedBy=multi-user.target
