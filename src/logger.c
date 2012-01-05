@@ -1,7 +1,6 @@
 #define _BSD_SOURCE 1
 
 #include "logger.h"
-#include "config.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -21,13 +20,20 @@
 
 static FILE *err_logfile;
 static FILE *info_logfile;
-	
+#if _DEBUG_LOG == 1
+static FILE *debug_logfile;
+#endif
+
 static void create_dirs();
 static int __lock_log_files(int mode);
 
+/*
+  TODO: cut down on the #ifs
+*/
 int thinkd_open_log()
 {
-	int fds[2], i;
+	int fds[2 + _DEBUG_LOG];
+	int i, res = 0;
 	FILE *nullfh;
 	struct stat logstat;
 	
@@ -37,11 +43,19 @@ int thinkd_open_log()
 	/* open the log files */
 	info_logfile = fopen(LOG_INFO_PATH, "a");
 	err_logfile = fopen(LOG_ERR_PATH, "a");
-	if (!info_logfile || !err_logfile)
+#if _DEBUG_LOG == 1
+	debug_logfile = fopen(LOG_DEBUG_PATH, "a");
+	res = (int) (! debug_logfile);
+#endif
+	res += (int) (!info_logfile || !err_logfile);
+	if (res)
 		return 1;
 
 	fds[0] = fileno(info_logfile);
 	fds[1] = fileno(err_logfile);
+#if _DEBUG_LOG == 1
+	fds[2] = fileno(debug_logfile);
+#endif
 	if ((try_lock_log_files()) != 0) { /* can't get LOCK */
 		int nullfd;
 		
@@ -69,12 +83,18 @@ int thinkd_open_log()
 		if (logstat.st_size > MAX_LOG_SIZE) {
 			freopen(LOG_INFO_PATH, "w", info_logfile);
 			freopen(LOG_ERR_PATH, "w", err_logfile);
+#if _DEBUG_LOG == 1
+			freopen(LOG_DEBUG_PATH, "w", debug_logfile);
+#endif
 			break;
 		}
 	}
 	
 	setlinebuf(err_logfile);
 	setlinebuf(info_logfile);
+#if _DEBUG_LOG == 1
+	setlinebuf(debug_logfile);
+#endif
 	return 0;
 }
 
@@ -110,12 +130,15 @@ static void create_dirs()
 
 static int __lock_log_files(int mode)
 {
-	int fds[2];
+	int fds[2 + _DEBUG_LOG];
 	int i;
 	
 	fds[0] = fileno(info_logfile);
 	fds[1] = fileno(err_logfile);
-
+#if _DEBUG_LOG == 1
+	fds[2] = fileno(debug_logfile);
+#endif
+	
         for (i = 0; i < STATIC_ARRAY_LEN(fds,int); ++i) {
 		if ((flock(fds[i], mode)) == -1) {
 			PRINT_SIMPLE_ERR("LOCK");
@@ -131,7 +154,12 @@ void thinkd_close_log()
 #ifdef USE_SYSLOG
 	closelog();
 #else
-	if (!err_logfile || !info_logfile)
+	int res = 0;
+ #if _DEBUG_LOG == 1
+	res += (int) (!debug_logfile);
+ #endif
+	res += (int) (!err_logfile || !info_logfile);
+	if (res)
 		return;
 
 	/* raise locks from files */
@@ -139,6 +167,9 @@ void thinkd_close_log()
 	
 	fclose(err_logfile);
 	fclose(info_logfile);
+ #if _DEBUG_LOG == 1
+	fclose(debug_logfile);
+ #endif
 #endif
 }
 
@@ -161,6 +192,11 @@ void thinkd_log(int priority, const char *format, ...)
 	
 	/* syslog.h defines following constants */	
 	switch (priority) {
+#if _DEBUG_LOG == 1
+	case LOG_DEBUG:
+		vfprintf(debug_logfile, newl_format, args);
+		break;
+#endif
 	case LOG_INFO:
 	case LOG_NOTICE:
 		vfprintf(info_logfile, newl_format, args);

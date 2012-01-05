@@ -1,3 +1,8 @@
+#include "logger.h"
+#include "thinkd.h"
+#include "conf_utils.h"
+#include "acpi.h"
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -10,13 +15,7 @@
 #include <syslog.h>
 #include <errno.h>
 #include <signal.h>
-#include <pthread.h>
-
-#include "config.h"
-#include "logger.h"
-#include "thinkd.h"
-#include "conf_utils.h"
-#include "acpi.h"		
+#include <pthread.h>		
 
 /* constants */
 static const char *lockfile = THINKD_LOCKFILE;
@@ -44,7 +43,7 @@ static void validate_user();
 static void ipc_listen();
 
 int main(int argc, char *argv[])
-{	
+{
 	handle_cmd_args(&argc, &argv);
 	if (open_log() || ! daemonize()) {
 		cleanup_before_exit();
