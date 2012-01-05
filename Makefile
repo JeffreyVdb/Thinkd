@@ -15,9 +15,8 @@ SYSTEMD_DIR = /lib/systemd/system
 
 all: $(EXE)
 
-$(EXE): .gitignore $(OBJS)
+$(EXE): $(OBJS)
 	@echo "LINK $(EXE) <- $(OBJS)"	
-	$(shell echo $@ >>.gitignore)
 	@$(CC) $(CFLAGS) -o $@ $(OBJS)
 	@echo "STRIP $(EXE)"
 	@strip --strip-all $(EXE)
@@ -25,12 +24,8 @@ $(EXE): .gitignore $(OBJS)
 %.o: $(SRCDIR)/%.c
 	@echo "COMPILE $< to $@"
 	@echo "FLAGS $(CFLAGS) -c"
-	$(shell echo $@ >>.gitignore)
 	@$(CC) $(CFLAGS) -c -o $@ $<
 	@echo
-
-.gitignore:
-	$(shell echo .gitignore >$@)
 
 .PHONY: all clean killd install etags
 
@@ -43,7 +38,7 @@ killd:
 	-@$(shell sudo kill -s SIGTERM $(shell sudo cat /var/run/thinkd.pid))
 
 clean:
-	$(RM) $(OBJS) $(EXE) .gitignore
+	$(RM) $(OBJS) $(EXE)
 
 install: $(EXE)
 	install -m 0755 $(EXE) $(BINDIR)
