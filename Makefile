@@ -1,5 +1,6 @@
 CC = gcc
 CFLAGS = -std=gnu99 -O2 -pedantic -Wall -g
+DEFINES = -DMAX_LOG_SIZE=262144
 EXE = thinkd
 SRCS = thinkd.c conf_utils.c acpi.c logger.c wrap.c
 
@@ -16,16 +17,14 @@ SYSTEMD_DIR = /lib/systemd/system
 all: $(EXE)
 
 $(EXE): $(OBJS)
-	@echo "LINK $(EXE) <- $(OBJS)"	
+	@echo "LINK $(EXE) $(OBJS)"	
 	@$(CC) $(CFLAGS) -o $@ $(OBJS)
 	@echo "STRIP $(EXE)"
 	@strip --strip-all $(EXE)
 
 %.o: $(SRCDIR)/%.c
-	@echo "COMPILE $< to $@"
-	@echo "FLAGS $(CFLAGS) -c"
-	@$(CC) $(CFLAGS) -c -o $@ $<
-	@echo
+	@echo "CC $@"
+	@$(CC) $(CFLAGS) $(DEFINES) -c -o $@ $<
 
 .PHONY: all clean killd install etags
 

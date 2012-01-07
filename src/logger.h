@@ -10,7 +10,10 @@
 #define PRINT_SIMPLE_ERR(mesg)						\
 	fprintf(stderr, LOGERR_FORMAT(mesg) "\n", errno, strerror(errno))
 
-#define MAX_LOG_SIZE 8192
+#ifndef MAX_LOG_SIZE
+ #define MAX_LOG_SIZE 8192
+#endif
+
 #ifndef _DEBUG_LOG
  #define _DEBUG_LOG 1
 #else
