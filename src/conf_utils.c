@@ -33,7 +33,9 @@ ini_table_t ini_table_defs[] = {
 	{"wireless", OFFSET_OF(power_prefs_t, wireless), str_read_bool},
 	{"wwan", OFFSET_OF(power_prefs_t, wwan), str_read_bool},
 	{"brightness", OFFSET_OF(power_prefs_t, brightness), str_read_int},
-	{"audio_powersave", OFFSET_OF(power_prefs_t, audio_powersave),str_read_bool}
+	{"audio_powersave", OFFSET_OF(power_prefs_t, audio_powersave),str_read_bool},
+	{"sound_muted", OFFSET_OF(power_prefs_t, mute_state), str_read_bool},
+	{"thinklight", OFFSET_OF(power_prefs_t, thinklight_state), str_read_bool}
 };
 
 /* static void debug_output(const char *path, const char *out, ...); */

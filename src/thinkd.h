@@ -7,8 +7,8 @@
 #define THINKD_LOCKFILE "/var/lock/thinkd"
 #define THINKD_SOCKET	"/var/run/thinkd.socket"
 
-#define AC_SLEEP_TIME 15
-#define BAT_SLEEP_TIME 60
+#define AC_SLEEP_TIME 5
+#define BAT_SLEEP_TIME 15
 
 #define DAEMON_NAME	"thinkd"
 #define DAEMON_VERSION	"2.1"

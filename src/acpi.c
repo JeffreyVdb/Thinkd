@@ -15,7 +15,7 @@
 #define AC97_DIR "/sys/module/snd_ac97_codec/"
 
 static int pprintf(const char *path, const char *format, ...);
-static void set_audio_state(audio_type_t type, bool state);
+static void set_audio_state(audio_type_t type, const power_prefs_t *prefs);
 
 int scan_power_supply(acpi_psupply_t *dest)
 {
@@ -115,28 +115,33 @@ void set_nmi_watchdog(bool state)
 	pprintf(nmi_path, "%u", (unsigned int) state);
 }
 
-void set_audio_powersaving(bool state)
+void set_audio_powersaving(const power_prefs_t *prefs)
 {
 	DIR *dir;
 
 	dir = opendir(HDA_INTEL_DIR);
 	if (dir) {
-		set_audio_state(HDA_INTEL, state);
+		set_audio_state(HDA_INTEL, prefs);
 		closedir(dir);
 	}
 	else if ((dir = opendir(AC97_DIR))) {
-		set_audio_state(AC97, state);
+		set_audio_state(AC97, prefs);
 		closedir(dir);
 	}
 }
 
-static void set_audio_state(audio_type_t type, bool state)
+static void set_audio_state(audio_type_t type, const power_prefs_t *prefs)
 {
+	const char *MUTE_ON = "mute";
+	const char *MUTE_OFF = "unmute";
+	const char *BASE_ACPI_PATH = THINKPAD_ACPI_DIR;
+	const size_t BUFFER_SIZE = 512;
+	int state = prefs->audio_powersave;
+	char buffer[BUFFER_SIZE];
+	
 	switch (type) {
 	case HDA_INTEL: {
-		const size_t BUFFER_SIZE = 512;
 		const char *work_path = HDA_INTEL_DIR "parameters";
-		char buffer[BUFFER_SIZE];
 		
 		snprintf(buffer, BUFFER_SIZE, "%s/%s", work_path, "power_save_controller");
 		pprintf(buffer, "%c", state ? 'Y' : 'N');
@@ -152,10 +157,15 @@ static void set_audio_state(audio_type_t type, bool state)
 		thinkd_log(LOG_ERR, "not found: %d", (int) type);
 		break;
 	}
+
+	/* unmute or mute sound */
+	snprintf(buffer, BUFFER_SIZE, "%s/%s", BASE_ACPI_PATH, "volume");
+	pprintf(buffer, "%s", prefs->mute_state ? MUTE_ON : MUTE_OFF);
 }
 
 void load_power_mode(const power_prefs_t *prefs)
 {
+	const char *BASE_ACPI_PATH = THINKPAD_ACPI_DIR;
 	const int VAL_SIZ = 256;
 	char buffer[VAL_SIZ], state_path[VAL_SIZ];
 	glob_t globbuf;
@@ -202,7 +212,10 @@ void load_power_mode(const power_prefs_t *prefs)
 
 	/* set nmi_watchdog */
 	set_nmi_watchdog(prefs->nmi_watchdog);
-	set_audio_powersaving(prefs->audio_powersave);
+	set_audio_powersaving(prefs);
+
+	snprintf(buffer, VAL_SIZ, "%s/%s", BASE_ACPI_PATH, "light");
+	pprintf(buffer, "%s", prefs->thinklight_state ? "on" : "off");
 }
 
 static int pprintf(const char *path, const char *format, ...)

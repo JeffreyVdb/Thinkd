@@ -19,6 +19,8 @@ typedef struct __power_prefs {
 	bool wireless;
 	bool wwan;
 	bool audio_powersave;
+	bool mute_state;
+	bool thinklight_state;
 } power_prefs_t;
 
 typedef struct __ini_table {
