@@ -2,6 +2,7 @@
 #define _LOGGER_H_
 
 #include <syslog.h>
+#include "void.h"
 #include "config.h"
 
 #define LOGERR_FORMAT(key) key ": %d (%s)"

@@ -9,14 +9,15 @@
 #include "config.h"
 #include "conf_utils.h"
 #include "logger.h"
+#include "void.h"
 
 #define OFFSET_OF(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #define MAX_SECTION_LEN 512
 #define MAX_KEYVAL_LEN 512
-#define load_section(name, fh, mode)			\
-	do { \
-		thinkd_log(LOG_INFO, "LOADING SECTION [%s]", name); \
-		read_section(fh, mode); \
+#define load_section(name, fh, mode)					\
+	do {								\
+		thinkd_log(LOG_INFO, "LOADING SECTION [%s]", name);	\
+		read_section(fh, mode);					\
 	} while (0)
 
 /* variables */
@@ -41,11 +42,13 @@ ini_table_t ini_table_defs[] = {
 /* static void debug_output(const char *path, const char *out, ...); */
 static void read_section(FILE *fp, power_prefs_t *prefs);
 static void search_tab_mv_end(unsigned int idx, unsigned int last_non_null);
+static void initialize_defaults(power_prefs_t *defaults);
 
 int read_ini()
 {
 	FILE *ini_fp;
 	char buffer[MAX_SECTION_LEN];
+	power_prefs_t *defaults;
 
 	/* attempt to open the file */
 	/* return errno on fail to be able to thinkd_log it */
@@ -54,6 +57,11 @@ int read_ini()
 		return -1;
 
 	/* read the ini file */
+	defaults = (power_prefs_t*) malloc(sizeof(struct __power_prefs));
+	load_section("default", ini_fp, defaults);
+	initialize_defaults(defaults);
+	free(defaults);
+	
 	while (fgets(buffer, MAX_SECTION_LEN, ini_fp)) {
 		char *bptr = buffer;
 		while (isblank(*bptr))
@@ -80,6 +88,20 @@ int read_ini()
 	fclose(ini_fp);
 	
 	return 0;
+}
+
+static void initialize_defaults(power_prefs_t *defaults)
+{
+	power_prefs_t *prefs[] = {
+		&mode_powersave, &mode_performance,
+		&mode_critical, &mode_heavy_powersave
+	};
+
+	for (power_prefs_t *p = *prefs + STATIC_ARRAY_LEN(prefs,power_prefs_t*) - 1;
+	     p >= *prefs; --p) {
+		thinkd_log(LOG_DEBUG, "currently initializing %p to defaults", p);
+		memcpy(p, defaults, sizeof(struct __power_prefs));
+	}
 }
 
 static void read_section(FILE *fp, power_prefs_t *prefs)
@@ -240,9 +262,16 @@ void str_read_int(void *store, const char *value)
 	int *dest = (int*) store;
 	int power = 1;
 	const char *a_end = value + strlen(value);
+	const char *nan_errmsg = "str_read_int(): expected integer number, got %s";
 
 	*dest = 0;
 	while (--a_end >= value) {
+		if (*a_end > '9' || *a_end < '0') {
+			thinkd_log(LOG_ERR, nan_errmsg, value);
+			*dest = 0;
+			return;
+		}
+		
 		*dest += (*a_end - '0') * power;
 		power *= 10;
 	}

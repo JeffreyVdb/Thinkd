@@ -14,7 +14,6 @@
 #include <time.h>
 #include <errno.h>
 
-#define STATIC_ARRAY_LEN(arr, type) (sizeof(arr) / sizeof(type))
 #define try_lock_log_files() __lock_log_files(LOCK_EX | LOCK_NB)
 #define unlock_log_files() __lock_log_files(LOCK_UN | LOCK_NB)
 
