@@ -16,6 +16,7 @@
 
 static int pprintf(const char *path, const char *format, ...);
 static void set_audio_state(audio_type_t type, const power_prefs_t *prefs);
+static void set_rfkill_devices(const power_prefs_t *prefs);
 
 int scan_power_supply(acpi_psupply_t *dest)
 {
@@ -130,11 +131,45 @@ void set_audio_powersaving(const power_prefs_t *prefs)
 	}
 }
 
+static void set_rfkill_devices(const power_prefs_t *prefs)
+{
+	const char *RFKILL_DIR = STANDARD_RFKILL_DIR;
+	sysfs_path_t rfkill_paths;
+	glob_t glob_buf;
+
+	/* use glob to search for bluetooth rfkill */
+	sysfs_sprintf(rfkill_paths, "%s/rfkill?", RFKILL_DIR);
+	if (! glob(rfkill_paths, 0, NULL, &glob_buf) == 0) {
+		LOG_SIMPLE_ERR("glob");
+		return;
+	}
+		
+	for (char **p = glob_buf.gl_pathv; *p; ++p) {
+		sysfs_path_t rf_state_path, rf_name_path;
+		sysfs_value_t name;
+
+		sysfs_sprintf(rf_name_path, "%s/%s", *p, "name");
+		sysfs_sprintf(rf_state_path, "%s/%s", *p, "state");
+		sysfs_gets(name, rf_name_path);
+		
+		if (strcmp(name, "tpacpi_bluetooth_sw") == 0) 
+			pprintf(rf_state_path, "%d", (int) prefs->bluetooth);
+		else if (strcmp(name, "tpacpi_wwan_sw") == 0) 
+			pprintf(rf_state_path, "%d", (int) prefs->wwan);
+		else {
+			/* Check if this is actually wifi */
+			pprintf(rf_state_path, "%d", (int) prefs->wireless);
+		}
+	}
+	
+	globfree(&glob_buf);
+}
+
 static void set_audio_state(audio_type_t type, const power_prefs_t *prefs)
 {
 	const char *MUTE_ON = "mute";
 	const char *MUTE_OFF = "unmute";
-	const char *BASE_ACPI_PATH = THINKPAD_ACPI_DIR;
+	const char *BASE_ACPI_PATH = THINKPAD_PROC_ACPI_DIR;
 	const size_t BUFFER_SIZE = 512;
 	int state = prefs->audio_powersave;
 	char buffer[BUFFER_SIZE];
@@ -165,37 +200,10 @@ static void set_audio_state(audio_type_t type, const power_prefs_t *prefs)
 
 void load_power_mode(const power_prefs_t *prefs)
 {
-	const char *BASE_ACPI_PATH = THINKPAD_ACPI_DIR;
+	const char *BASE_ACPI_PROC = THINKPAD_PROC_ACPI_DIR;
 	const int VAL_SIZ = 256;
-	char buffer[VAL_SIZ], state_path[VAL_SIZ];
-	glob_t globbuf;
+	char buffer[VAL_SIZ];
 	int max_brightness, brightness_adjust;
-	
-	/* use glob to search for bluetooth rfkill */
-	if (! glob("/sys/devices/platform/thinkpad_acpi/rfkill/rfkill?/name",
-		 0, NULL, &globbuf) == 0) {
-		thinkd_log(LOG_ERR, "glob: %s", strerror(errno));
-		return;
-	}
-		
-	for (char **p = globbuf.gl_pathv; *p; ++p) {
-		memset(state_path, 0, VAL_SIZ);
-		char *fsl_pch;
-		size_t dirname_len;
-		
-		sysfs_read_str(buffer, VAL_SIZ, *p);
-		fsl_pch = strrchr(*p, '/');
-		dirname_len = ((fsl_pch+1) - *p);
-		strncpy(state_path, *p, dirname_len);
-		strcat(state_path, "state");
-		
-		if (strcmp(buffer, "tpacpi_bluetooth_sw") == 0) 
-			pprintf(state_path, "%d", (int) prefs->bluetooth);
-		else if (strcmp(buffer, "tpacpi_wwan_sw") == 0) 
-			pprintf(state_path, "%d", (int) prefs->wwan);
-	}
-	
-	globfree(&globbuf);
 
 	/* set brightness */
 	snprintf(buffer, VAL_SIZ, BACKLIGHT_DIRECTORY "/max_brightness");
@@ -213,8 +221,9 @@ void load_power_mode(const power_prefs_t *prefs)
 	/* set nmi_watchdog */
 	set_nmi_watchdog(prefs->nmi_watchdog);
 	set_audio_powersaving(prefs);
+	set_rfkill_devices(prefs);
 
-	snprintf(buffer, VAL_SIZ, "%s/%s", BASE_ACPI_PATH, "light");
+	snprintf(buffer, VAL_SIZ, "%s/%s", BASE_ACPI_PROC, "light");
 	pprintf(buffer, "%s", prefs->thinklight_state ? "on" : "off");
 }
 
@@ -226,6 +235,7 @@ static int pprintf(const char *path, const char *format, ...)
 	
 	fp = fopen(path, "w");
 	if (! fp) {
+		thinkd_log(LOG_ERR, "while opening %s", path);
 		LOG_SIMPLE_ERR("fopen");
 		return 0;
 	}
