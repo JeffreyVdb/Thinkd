@@ -12,23 +12,23 @@
 	fprintf(stderr, LOGERR_FORMAT(mesg) "\n", errno, strerror(errno))
 
 #ifndef MAX_LOG_SIZE
- #define MAX_LOG_SIZE 8192
+#  define MAX_LOG_SIZE 8192
 #endif
 
 #ifndef _DEBUG_LOG
- #define _DEBUG_LOG 1
+#  define _DEBUG_LOG 1
 #else
- #if _DEBUG_LOG > 1
-  #define _DEBUG_LOG 1
- #endif
+#  if _DEBUG_LOG > 1
+#    define _DEBUG_LOG 1
+#  endif
 #endif
 
 #ifndef LOG_DEBUG
- #ifdef USE_SYSLOG
-  #define LOG_DEBUG LOG_INFO
- #else
-  #define LOG_DEBUG LOG_INFO|LOG_NOTICE
- #endif
+#  ifdef USE_SYSLOG
+#    define LOG_DEBUG LOG_INFO
+#  else
+#    define LOG_DEBUG LOG_INFO|LOG_NOTICE
+#  endif
 #endif
 
 extern int thinkd_open_log();

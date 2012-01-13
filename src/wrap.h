@@ -6,9 +6,9 @@
 #include "logger.h"
 
 #if _DEBUG_LOG > 0
-#define	malloc(bytes) ec_malloc(bytes)
-#define	calloc(nmem,bytes) ec_calloc(nmem,bytes)
-#define free(ptr) log_free(ptr)
+#  define malloc(bytes) ec_malloc(bytes)
+#  define calloc(nmem,bytes) ec_calloc(nmem,bytes)
+#  define free(ptr) log_free(ptr)
 
 void *ec_malloc(unsigned int bytes);
 void *ec_calloc(unsigned int nmem, unsigned int bytes);

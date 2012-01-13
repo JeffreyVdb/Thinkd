@@ -154,9 +154,9 @@ void thinkd_close_log()
 	closelog();
 #else
 	int res = 0;
- #if _DEBUG_LOG == 1
+#  if _DEBUG_LOG == 1
 	res += (int) (!debug_logfile);
- #endif
+#  endif
 	res += (int) (!err_logfile || !info_logfile);
 	if (res)
 		return;
@@ -166,9 +166,9 @@ void thinkd_close_log()
 	
 	fclose(err_logfile);
 	fclose(info_logfile);
- #if _DEBUG_LOG == 1
+#  if _DEBUG_LOG == 1
 	fclose(debug_logfile);
- #endif
+#  endif
 #endif
 }
 
@@ -191,11 +191,11 @@ void thinkd_log(int priority, const char *format, ...)
 	
 	/* syslog.h defines following constants */	
 	switch (priority) {
-#if _DEBUG_LOG == 1
+#  if _DEBUG_LOG == 1
 	case LOG_DEBUG:
 		vfprintf(debug_logfile, newl_format, args);
 		break;
-#endif
+#  endif
 	case LOG_INFO:
 	case LOG_NOTICE:
 		vfprintf(info_logfile, newl_format, args);
