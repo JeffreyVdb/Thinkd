@@ -40,9 +40,8 @@ case "$1" in
     ;;
   reload|force-reload) 
     log_begin_msg "Reloading THINKD service..."
-    # in progress
-    #  start-stop-daemon --stop --signal 1 --exec "$THINKD"
-    log_end_msg $?
+    kill -10 $(cat $PIDFILE)
+    log_end_msg 0
     ;;
   status)
     status_of_proc "$THINKD" thinkd
