@@ -170,18 +170,19 @@ static void set_audio_state(audio_type_t type, const power_prefs_t *prefs)
 	const char *MUTE_ON = "mute";
 	const char *MUTE_OFF = "unmute";
 	const char *BASE_ACPI_PATH = THINKPAD_PROC_ACPI_DIR;
-	const size_t BUFFER_SIZE = 512;
+	sysfs_path_t mute_path;
 	int state = prefs->audio_powersave;
-	char buffer[BUFFER_SIZE];
 	
 	switch (type) {
 	case HDA_INTEL: {
-		const char *work_path = HDA_INTEL_DIR "parameters";
+		const char *PATH_FORMAT = "%s/parameters/%s";
+		const char *BASE_PATH = HDA_INTEL_DIR;
+		sysfs_path_t ps_path_c, ps_path;
 		
-		snprintf(buffer, BUFFER_SIZE, "%s/%s", work_path, "power_save_controller");
-		pprintf(buffer, "%c", state ? 'Y' : 'N');
-		snprintf(buffer, BUFFER_SIZE, "%s/%s", work_path, "power_save");
-		pprintf(buffer, "%d", state ? 1 : 0);
+		sysfs_sprintf(ps_path_c, PATH_FORMAT, BASE_PATH, "power_save_controller");
+		sysfs_sprintf(ps_path, PATH_FORMAT, BASE_PATH, "power_save");
+		pprintf(ps_path_c, "%c", state ? 'Y' : 'N');
+		pprintf(ps_path, "%d", state ? 1 : 0);
 		break;
 	}
 	case AC97:
@@ -194,8 +195,8 @@ static void set_audio_state(audio_type_t type, const power_prefs_t *prefs)
 	}
 
 	/* unmute or mute sound */
-	snprintf(buffer, BUFFER_SIZE, "%s/%s", BASE_ACPI_PATH, "volume");
-	pprintf(buffer, "%s", prefs->mute_state ? MUTE_ON : MUTE_OFF);
+	sysfs_sprintf(mute_path, "%s/%s", BASE_ACPI_PATH, "volume");
+	pprintf(mute_path, "%s", prefs->mute_state ? MUTE_ON : MUTE_OFF);
 }
 
 void load_power_mode(const power_prefs_t *prefs)
