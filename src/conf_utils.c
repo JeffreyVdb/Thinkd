@@ -182,8 +182,12 @@ static void read_section(FILE *fp, power_prefs_t *prefs)
 			
 			newl_pch = strchr(val_pch, '\n');
 			if (! newl_pch) {
-				thinkd_log(LOG_ERR, "Fatal error in ini file");
-				goto clean_table;
+				if (! feof(fp)) {
+					thinkd_log(LOG_ERR, "Fatal error in ini file");
+					goto clean_table;
+				}
+
+				newl_pch = val_pch + strlen(val_pch);
 			}
 
 			*newl_pch = '\0';

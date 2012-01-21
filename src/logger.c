@@ -180,15 +180,34 @@ void thinkd_log(int priority, const char *format, ...)
 #ifdef USE_SYSLOG
 	vsyslog(priority,format,args);
 #else
+	const int DATE_FORMAT_SIZE = 128;
+	const char *DATE_FORMAT = "%r: ";
+	time_t t;
+	struct tm *ltime;
 	size_t format_len;
 	char * newl_format;
+	char dformat_buffer[DATE_FORMAT_SIZE];
+
+	/* first generate date format */
+	t = time(NULL);
+	ltime = localtime(&t);
+	if (! ltime) {
+		fprintf(err_logfile, "%s\n", strerror(errno));
+		return;
+	}
+
+	if (! strftime(dformat_buffer, DATE_FORMAT_SIZE, DATE_FORMAT, ltime)) {
+		fprintf(err_logfile, "%s\n", strerror(errno));
+		return;
+	}
 	
 	/* we need to add an extra newline character */
-	format_len = strlen(format);
+	format_len = strlen(format) + strlen(dformat_buffer);
 	newl_format = (char *) calloc(format_len + 2, sizeof(char));
-	strcpy(newl_format, format);
+	strcpy(newl_format, dformat_buffer);
+	strcat(newl_format, format);
 	newl_format[format_len] = '\n';
-	
+
 	/* syslog.h defines following constants */	
 	switch (priority) {
 #  if _DEBUG_LOG == 1
@@ -209,7 +228,7 @@ void thinkd_log(int priority, const char *format, ...)
 		vfprintf(info_logfile, newl_format, args);
 		break;
 	}
-	
+
 	free(newl_format);
 #endif
 	va_end(args);
