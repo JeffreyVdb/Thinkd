@@ -97,7 +97,7 @@ static void initialize_defaults(power_prefs_t *defaults)
 		&mode_critical, &mode_heavy_powersave
 	};
 
-	for (power_prefs_t *p = *prefs + STATIC_ARRAY_LEN(prefs,power_prefs_t*) - 1;
+	for (power_prefs_t *p = *prefs + array_count(prefs) - 1;
 	     p >= *prefs; --p) {
 		thinkd_log(LOG_DEBUG, "currently initializing %p to defaults", p);
 		memcpy(p, defaults, sizeof(struct __power_prefs));

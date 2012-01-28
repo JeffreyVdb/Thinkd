@@ -67,7 +67,7 @@ int thinkd_open_log()
 		nullfd = fileno(nullfh);
 
 		/* redirect log files to void */
-		for (i = 0; i < STATIC_ARRAY_LEN(fds,int); ++i) {
+		for (i = 0; i < array_count(fds); ++i) {
 			if ((dup2(nullfd, fds[i])) != fds[i]) 
 				PRINT_SIMPLE_ERR("dup2");
 		}			
@@ -77,7 +77,7 @@ int thinkd_open_log()
 	}
 
 	/* at this point the lock is ours */
-	for (i = 0; i < STATIC_ARRAY_LEN(fds, int); ++i) {
+	for (i = 0; i < array_count(fds); ++i) {
 		fstat(fds[i], &logstat);
 		if (logstat.st_size > MAX_LOG_SIZE) {
 			freopen(LOG_INFO_PATH, "w", info_logfile);
@@ -138,7 +138,7 @@ static int __lock_log_files(int mode)
 	fds[2] = fileno(debug_logfile);
 #endif
 	
-        for (i = 0; i < STATIC_ARRAY_LEN(fds,int); ++i) {
+        for (i = 0; i < array_count(fds); ++i) {
 		if ((flock(fds[i], mode)) == -1) {
 			PRINT_SIMPLE_ERR("LOCK");
 			return 1;
