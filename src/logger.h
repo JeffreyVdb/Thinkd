@@ -33,6 +33,6 @@
 
 extern int thinkd_open_log();
 extern void thinkd_close_log();
-extern void thinkd_log(int priority, const char *format, ...);
+extern void thinkd_log(int priority, const char *format, ...) THINKD_ATTR_PRINTF(2);
 
 #endif

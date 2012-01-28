@@ -6,6 +6,7 @@
 #include <glob.h>
 #include <stdarg.h>
 
+#include "void.h"
 #include "acpi.h"
 #include "logger.h"
 
@@ -14,7 +15,7 @@
 #define HDA_INTEL_DIR "/sys/module/snd_hda_intel/"
 #define AC97_DIR "/sys/module/snd_ac97_codec/"
 
-static int pprintf(const char *path, const char *format, ...);
+static int pprintf(const char *path, const char *format, ...) THINKD_ATTR_PRINTF(2);
 static void set_audio_state(audio_type_t type, const power_prefs_t *prefs);
 static void set_rfkill_devices(const power_prefs_t *prefs);
 

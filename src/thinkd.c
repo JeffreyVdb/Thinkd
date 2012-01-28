@@ -32,7 +32,7 @@ static void handle_cmd_args(int *argc, char ***argv);
 static int open_log();
 static bool daemonize();
 static bool std2null();
-static void clean_and_exit();
+static void clean_and_exit() THINKD_ATTR_NORET;
 static void cleanup_before_exit();
 static bool create_pidfile();
 static void detect_psupply_mode();

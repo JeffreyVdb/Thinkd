@@ -99,7 +99,7 @@ static void initialize_defaults(power_prefs_t *defaults)
 
 	for (power_prefs_t *p = *prefs + array_count(prefs) - 1;
 	     p >= *prefs; --p) {
-		thinkd_log(LOG_DEBUG, "currently initializing %p to defaults", p);
+		thinkd_log(LOG_DEBUG, "currently initializing %p to defaults", (void *) p);
 		memcpy(p, defaults, sizeof(struct __power_prefs));
 	}
 }
