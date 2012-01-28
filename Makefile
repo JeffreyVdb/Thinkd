@@ -13,14 +13,20 @@ REAL_SRCS = $(addprefix $(SRCDIR)/, $(SRCS))
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
 SYSTEMD_DIR = /lib/systemd/system
+MANDIR = $(PREFIX)/man/man8
+MANPAGES = $(addsuffix .gz, $(addprefix man/, thinkd.8))
+INSTALL = install
 
-all: $(EXE)
+all: $(EXE) $(MANPAGES)
 
 $(EXE): $(OBJS)
 	@echo "LINK $(EXE) $(OBJS)"	
 	@$(CC) $(CFLAGS) -o $@ $(OBJS)
 	@echo "STRIP $(EXE)"
 	@strip --strip-all $(EXE)
+
+man/%.8.gz: man/%.8
+	gzip $< -c > $@
 
 %.o: $(SRCDIR)/%.c
 	@echo "CC $@"
@@ -37,7 +43,7 @@ killd:
 	-@$(shell sudo kill -s SIGTERM $(shell sudo cat /var/run/thinkd.pid))
 
 clean:
-	$(RM) $(OBJS) $(EXE)
+	$(RM) $(OBJS) $(EXE) $(MANPAGES)
 
 install: $(EXE)
 	install -m 0755 $(EXE) $(BINDIR)
@@ -46,6 +52,7 @@ ifeq ($(shell uname -r | egrep -q "fc1[6-9]+" && echo 1),1)
 	install -m 0755 systemd/$(EXE).service /lib/systemd/system
 	systemctl enable $(EXE).service
 else
-	install -m 0755 $(INITDIR)/$(EXE) /etc/init.d
-	install -m 0644 thinkd.ini /etc
+	$(INSTALL) -m 0755 $(INITDIR)/$(EXE) /etc/init.d
+	$(INSTALL) -m 0644 thinkd.ini /etc
+	$(INSTALL) -m 0644 $(MANPAGES) $(MANDIR)
 endif
