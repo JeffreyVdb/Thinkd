@@ -1,7 +1,6 @@
 #ifndef _THINKD_H_
 #define _THINKD_H_
 #include "config.h"
-#include "wrap.h"
 
 #define THINKD_PIDFILE	"/var/run/thinkd.pid"
 #define THINKD_LOCKFILE "/var/lock/thinkd"
