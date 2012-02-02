@@ -1,4 +1,5 @@
 *.o
 thinkd
 !init.d/thinkd
+man/*.gz
 src/TAGS
