@@ -3,5 +3,5 @@
 man/*.gz
 
 # special files
-thinkd
+/thinkd
 src/TAGS
