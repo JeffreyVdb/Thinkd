@@ -1,4 +1,7 @@
+# globs
 *.o
-./thinkd
 man/*.gz
+
+# special files
+thinkd
 src/TAGS
