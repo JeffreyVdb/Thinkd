@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "wrap.h"
 
 /* this makes our configuration a little more clear */
 #define ENABLED true

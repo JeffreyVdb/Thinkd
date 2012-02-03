@@ -2,7 +2,8 @@ CC = gcc
 CFLAGS = -std=gnu99 -O2 -pedantic -Wall -g
 DEFINES = -DMAX_LOG_SIZE=262144
 EXE = thinkd
-SRCS = thinkd.c conf_utils.c acpi.c logger.c wrap.c
+SRCS = thinkd.c conf_utils.c acpi.c \
+	   logger.c eclib.c 
 
 # use macro to replace the source suffixes to .o
 OBJS = $(SRCS:.c=.o)

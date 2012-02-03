@@ -6,6 +6,7 @@
 #include <string.h>
 #include <strings.h>
 
+#include "eclib.h"
 #include "config.h"
 #include "conf_utils.h"
 #include "logger.h"
@@ -57,7 +58,7 @@ int read_ini()
 		return -1;
 
 	/* read the ini file */
-	defaults = (power_prefs_t*) malloc(sizeof(struct __power_prefs));
+	defaults = (power_prefs_t*) ec_malloc(sizeof(struct __power_prefs));
 	load_section("default", ini_fp, defaults);
 	initialize_defaults(defaults);
 	free(defaults);
@@ -229,7 +230,7 @@ size_t alloc_ini_table()
 	elems = tab_size / sizeof(struct __ini_table);
 	alloc_size = elems * sizeof(struct __ini_table*);
 	
-	search_tab = (ini_table_t**) malloc(alloc_size);
+	search_tab = (ini_table_t**) ec_malloc(alloc_size);
 	if (! search_tab)
 		return (size_t) 0;
 
