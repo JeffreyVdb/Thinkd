@@ -1,59 +1,71 @@
+# Compiler specific
 CC = gcc
 CFLAGS = -std=gnu99 -O2 -pedantic -Wall -g
-DEFINES = -DMAX_LOG_SIZE=262144
+CPPFLAGS = -DMAX_LOG_SIZE=262144
 EXE = thinkd
 SRCS = thinkd.c conf_utils.c acpi.c \
 	   logger.c eclib.c 
-
-# use macro to replace the source suffixes to .o
 OBJS = $(SRCS:.c=.o)
-RM = rm -f
+
+# Application directories
 SRCDIR = src
 INITDIR = init.d
 REAL_SRCS = $(addprefix $(SRCDIR)/, $(SRCS))
-PREFIX = /usr/local
-BINDIR = $(PREFIX)/bin
-SYSTEMD_DIR = /lib/systemd/system
-MANDIR = $(PREFIX)/man/man8
 MANPAGES = $(addsuffix .gz, $(addprefix man/, thinkd.8))
+
+# Install dirs 
+PREFIX ?= /usr/local
+INST_INITDIR = /etc/init.d/
+INST_CONFDIR = /etc
+INST_BINDIR = $(PREFIX)/bin
+INST_MANDIR = $(PREFIX)/man/man8
+INST_SYSTEMD_DIR = $(PREFIX)/lib/systemd/system
+
+# Commands
+RM = rm -f
 INSTALL = install
+STRIP = strip --strip-all
+GZIP = gzip
 
 all: $(EXE) $(MANPAGES)
 
 $(EXE): $(OBJS)
-	@echo "LINK $(EXE) $(OBJS)"	
-	@$(CC) $(CFLAGS) -o $@ $(OBJS)
-	@echo "STRIP $(EXE)"
-	@strip --strip-all $(EXE)
+# @echo "LINK $(EXE) $(OBJS)"	
+	$(LINK.c) -o $@ $(OBJS)
+# @echo "STRIP $(EXE)"
+	$(STRIP) $(EXE)
 
 man/%.8.gz: man/%.8
-	gzip $< -c > $@
+	$(GZIP) $< -c > $@
 
-%.o: $(SRCDIR)/%.c
-	@echo "CC $@"
-	@$(CC) $(CFLAGS) $(DEFINES) -c -o $@ $<
+$(OBJS): $(SRCDIR)/config.h \
+			$(SRCDIR)/void.h
 
-.PHONY: all clean killd install etags
+$(OBJS): %.o: $(SRCDIR)/%.c $(SRCDIR)/%.h
+# @echo "CC $@"
+	$(COMPILE.c) -o $@ $<
 
-etags:
-	@echo "generating etags"
-	-@$(shell cd $(SRCDIR) && etags *.c *.h)
+.PHONY: all clean killd install TAGS
+
+TAGS:
+	@printf "generating etags\n"
+	$(shell cd $(SRCDIR) && etags *.c *.h)
 
 killd:
-	@echo "killing daemon"
-	-@$(shell sudo kill -s SIGTERM $(shell sudo cat /var/run/thinkd.pid))
+	@printf "killing daemon\n"
+	$(shell sudo kill -s SIGTERM $(shell sudo cat /var/run/thinkd.pid))
 
 clean:
 	$(RM) $(OBJS) $(EXE) $(MANPAGES)
 
 install: $(EXE)
-	install -m 0755 $(EXE) $(BINDIR)
+	install -m 0755 $(EXE) $(INST_BINDIR)
 ifeq ($(shell uname -r | egrep -q "fc1[6-9]+" && echo 1),1)
 	@echo "Detected fedora 16+"
-	install -m 0755 systemd/$(EXE).service /lib/systemd/system
+	install -m 0755 systemd/$(EXE).service $(INST_SYSTEMD_DIR)
 	systemctl enable $(EXE).service
 else
-	$(INSTALL) -m 0755 $(INITDIR)/$(EXE) /etc/init.d
-	$(INSTALL) -m 0644 thinkd.ini /etc
-	$(INSTALL) -m 0644 $(MANPAGES) $(MANDIR)
+	$(INSTALL) -m 0755 $(INITDIR)/$(EXE) $(INST_INITDIR)
+	$(INSTALL) -m 0644 thinkd.ini $(INST_CONFDIR)
+	$(INSTALL) -m 0644 $(MANPAGES) $(INST_MANDIR)
 endif
