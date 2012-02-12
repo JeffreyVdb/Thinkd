@@ -1,25 +1,25 @@
 # Compiler specific
-CC = gcc
-CFLAGS = -std=gnu99 -O2 -pedantic -Wall -g
-CPPFLAGS = -DMAX_LOG_SIZE=262144
-EXE = thinkd
-SRCS = thinkd.c conf_utils.c acpi.c \
-	   logger.c eclib.c 
-OBJS = $(SRCS:.c=.o)
+CC 			:= gcc
+CFLAGS 		:= -std=gnu99 -O2 -pedantic -Wall -g
+CPPFLAGS 	:= -DMAX_LOG_SIZE=262144
+EXE  		:= thinkd
+SRCS  		:= thinkd.c conf_utils.c acpi.c \
+	   			logger.c eclib.c 
+OBJS 		:= $(SRCS:.c=.o)
 
 # Application directories
-SRCDIR = src
-INITDIR = init.d
-REAL_SRCS = $(addprefix $(SRCDIR)/, $(SRCS))
-MANPAGES = $(addsuffix .gz, $(addprefix man/, thinkd.8))
+SRCDIR 		:= src
+INITDIR 	:= init.d
+REAL_SRCS 	:= $(addprefix $(SRCDIR)/, $(SRCS))
+MANPAGES 	:= $(addsuffix .gz, $(addprefix man/, thinkd.8))
 
 # Install dirs 
-PREFIX ?= /usr/local
-INST_INITDIR = /etc/init.d/
-INST_CONFDIR = /etc
-INST_BINDIR = $(PREFIX)/bin
-INST_MANDIR = $(PREFIX)/man/man8
-INST_SYSTEMD_DIR = $(PREFIX)/lib/systemd/system
+PREFIX 			?= /usr/local
+INST_INITDIR 	:= /etc/init.d/
+INST_CONFDIR 	:= /etc
+INST_BINDIR 	:= $(PREFIX)/bin
+INST_MANDIR 	:= $(PREFIX)/man/man8
+INST_SYSTEMD_DIR := $(PREFIX)/lib/systemd/system
 
 # Commands
 RM = rm -f
@@ -27,23 +27,36 @@ INSTALL = install
 STRIP = strip --strip-all
 GZIP = gzip
 
+# Other
+Q ?= @
+ifneq ($(Q), @)
+override Q := 
+endif
+
 all: $(EXE) $(MANPAGES)
 
 $(EXE): $(OBJS)
-# @echo "LINK $(EXE) $(OBJS)"	
-	$(LINK.c) -o $@ $(OBJS)
-# @echo "STRIP $(EXE)"
-	$(STRIP) $(EXE)
+ifeq ($(Q), @)
+	@printf "LINK $(EXE) $(OBJS)\n"
+	@printf "STRIP $(EXE)\n"
+endif
+	$(Q)$(LINK.c) -o $@ $(OBJS)
+	$(Q)$(STRIP) $(EXE)
 
 man/%.8.gz: man/%.8
-	$(GZIP) $< -c > $@
+ifeq ($(Q), @)
+	@printf "COMPRESS $^\n"
+endif
+	$(Q)$(GZIP) $< -c > $@
 
 $(OBJS): $(SRCDIR)/config.h \
 			$(SRCDIR)/void.h
 
 $(OBJS): %.o: $(SRCDIR)/%.c $(SRCDIR)/%.h
-# @echo "CC $@"
-	$(COMPILE.c) -o $@ $<
+ifeq ($(Q), @)
+	@printf	"CC $@\n"
+endif
+	$(Q)$(COMPILE.c) -o $@ $<
 
 .PHONY: all clean killd install TAGS
 
