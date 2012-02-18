@@ -43,5 +43,6 @@ extern char *sysfs_read_str(char * dest, size_t len, const char *path);
 extern void load_power_mode(const power_prefs_t *prefs);
 extern void set_nmi_watchdog(bool state);
 extern void set_audio_powersaving(const power_prefs_t *prefs);
+extern void set_thinklight_state(bool state);
 
 #endif /* _ACPI_H_ */

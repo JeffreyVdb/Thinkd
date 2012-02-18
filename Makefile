@@ -1,11 +1,15 @@
 # Compiler specific
 CC 			:= gcc
 CFLAGS 		:= -std=gnu99 -O2 -pedantic -Wall -g -fomit-frame-pointer
-CPPFLAGS 	:= -DMAX_LOG_SIZE=262144
+CPPFLAGS 	:= -DMAX_LOG_SIZE=262144 \
+   	-DAC_NOTIFICATION_NBLINK=3
+LIB_FLAGS	:= -lpthread
 EXE  		:= thinkd
 SRCS  		:= thinkd.c conf_utils.c acpi.c \
 	   			logger.c eclib.c 
 OBJS 		:= $(addprefix obj/, $(SRCS:.c=.o))
+COMPILE.c 	= $(CC) $(CFLAGS) $(CPPFLAGS) $(LIB_FLAGS) -c
+LINK.o		+= $(LIB_FLAGS)
 
 # Application directories
 SRCDIR 		:= src
@@ -31,14 +35,14 @@ GZIP = gzip
 MKDIR = mkdir -p
 
 # Other
-Q ?= @
+Q ?= 
 ifneq ($(Q), @)
 override Q := 
 endif
 
 all: $(EXE) $(MANPAGES)
 
-$(EXE): $(OBJS)
+$(EXE): $(OBJS) $(LIB_FLAGS)
 ifeq ($(Q), @)
 	@printf "LINK $(EXE) $(OBJS)\n"
 	@printf "STRIP $(EXE)\n"

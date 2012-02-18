@@ -1,4 +1,6 @@
 #include <string.h>
+#include <unistd.h>
+#include <pthread.h>
 #include <errno.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -18,6 +20,7 @@
 static int pprintf(const char *path, const char *format, ...) THINKD_ATTR_PRINTF(2);
 static void set_audio_state(audio_type_t type, const power_prefs_t *prefs);
 static void set_rfkill_devices(const power_prefs_t *prefs);
+static void *thinklight_blink(void *data);
 
 int scan_power_supply(acpi_psupply_t *dest)
 {
@@ -200,13 +203,46 @@ static void set_audio_state(audio_type_t type, const power_prefs_t *prefs)
 	pprintf(mute_path, "%s", prefs->mute_state ? MUTE_ON : MUTE_OFF);
 }
 
-void load_power_mode(const power_prefs_t *prefs)
+void set_thinklight_state(bool state)
 {
 	const char *BASE_ACPI_PROC = THINKPAD_PROC_ACPI_DIR;
+	const char *FNAME = "light";
+	const char *LIGHT_ON = "on";
+	const char *LIGHT_OFF = "off";
+	procfs_path_t thinklight_path;
+	
+	procfs_sprintf(thinklight_path, "%s/%s", BASE_ACPI_PROC, FNAME);
+	pprintf(thinklight_path, state ? LIGHT_ON : LIGHT_OFF); 
+}
+
+void load_power_mode(const power_prefs_t *prefs)
+{
 	const int VAL_SIZ = 256;
 	char buffer[VAL_SIZ];
 	int max_brightness, brightness_adjust;
-
+#ifdef AC_NOTIFICATION_NBLINK
+	pthread_t blink_thread;
+	pthread_attr_t thread_attrs;
+	unsigned int nblink = AC_NOTIFICATION_NBLINK;
+	
+	if ((pthread_attr_init(&thread_attrs)) != 0) {
+		LOG_SIMPLE_ERR("pthread_attr_init");
+		goto skip_thinklight;
+	}
+	if ((pthread_attr_setdetachstate(&thread_attrs, PTHREAD_CREATE_DETACHED)) != 0) {
+		LOG_SIMPLE_ERR("pthread_set_detached");
+		goto skip_thinklight;
+	}
+	if ((pthread_create(&blink_thread, &thread_attrs,
+			    thinklight_blink, (void *) &nblink)) != 0) {
+		LOG_SIMPLE_ERR("pthread_create");
+		goto skip_thinklight;
+	}
+	
+skip_thinklight:
+#else
+	set_thinklight_state(prefs->thinklight_state);
+#endif
 	/* set brightness */
 	snprintf(buffer, VAL_SIZ, BACKLIGHT_DIRECTORY "/max_brightness");
 	max_brightness = sysfs_read_int(buffer);
@@ -224,9 +260,22 @@ void load_power_mode(const power_prefs_t *prefs)
 	set_nmi_watchdog(prefs->nmi_watchdog);
 	set_audio_powersaving(prefs);
 	set_rfkill_devices(prefs);
+}
 
-	snprintf(buffer, VAL_SIZ, "%s/%s", BASE_ACPI_PROC, "light");
-	pprintf(buffer, "%s", prefs->thinklight_state ? "on" : "off");
+static void *thinklight_blink(void *data)
+{
+	useconds_t microseconds = 100000;
+	unsigned int times = * ((unsigned int*) data);
+	bool curstate = 0;
+	times *= 2;
+
+	while (--times) {
+		set_thinklight_state((curstate ^= 1));
+		usleep(microseconds);
+	}
+
+	set_thinklight_state(mode_performance.thinklight_state);
+	return NULL;
 }
 
 static int pprintf(const char *path, const char *format, ...)

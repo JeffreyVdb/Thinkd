@@ -1,5 +1,6 @@
 #ifndef _THINKD_H_
 #define _THINKD_H_
+
 #include "config.h"
 
 #define THINKD_PIDFILE	"/var/run/thinkd.pid"
