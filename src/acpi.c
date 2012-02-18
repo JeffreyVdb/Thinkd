@@ -17,6 +17,8 @@
 #define HDA_INTEL_DIR "/sys/module/snd_hda_intel/"
 #define AC97_DIR "/sys/module/snd_ac97_codec/"
 
+const static volatile power_prefs_t *current;
+
 static int pprintf(const char *path, const char *format, ...) THINKD_ATTR_PRINTF(2);
 static void set_audio_state(audio_type_t type, const power_prefs_t *prefs);
 static void set_rfkill_devices(const power_prefs_t *prefs);
@@ -220,6 +222,8 @@ void load_power_mode(const power_prefs_t *prefs)
 	const int VAL_SIZ = 256;
 	char buffer[VAL_SIZ];
 	int max_brightness, brightness_adjust;
+	current = prefs;
+	
 #ifdef AC_NOTIFICATION_NBLINK
 	pthread_t blink_thread;
 	pthread_attr_t thread_attrs;
@@ -233,6 +237,7 @@ void load_power_mode(const power_prefs_t *prefs)
 		LOG_SIMPLE_ERR("pthread_set_detached");
 		goto skip_thinklight;
 	}
+
 	if ((pthread_create(&blink_thread, &thread_attrs,
 			    thinklight_blink, (void *) &nblink)) != 0) {
 		LOG_SIMPLE_ERR("pthread_create");
@@ -264,17 +269,17 @@ skip_thinklight:
 
 static void *thinklight_blink(void *data)
 {
-	useconds_t microseconds = 100000;
+	const useconds_t BLINK_DELAY = 100000;
 	unsigned int times = * ((unsigned int*) data);
 	bool curstate = 0;
 	times *= 2;
 
 	while (--times) {
 		set_thinklight_state((curstate ^= 1));
-		usleep(microseconds);
+		usleep(BLINK_DELAY);
 	}
 
-	set_thinklight_state(mode_performance.thinklight_state);
+	set_thinklight_state(current->thinklight_state);
 	return NULL;
 }
 
