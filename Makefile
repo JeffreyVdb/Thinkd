@@ -1,16 +1,18 @@
 # Compiler specific
 CC 			:= gcc
-CFLAGS 		:= -std=gnu99 -O2 -pedantic -Wall -g
+CFLAGS 		:= -std=gnu99 -O2 -pedantic -Wall -g -fomit-frame-pointer
 CPPFLAGS 	:= -DMAX_LOG_SIZE=262144
 EXE  		:= thinkd
 SRCS  		:= thinkd.c conf_utils.c acpi.c \
 	   			logger.c eclib.c 
-OBJS 		:= $(SRCS:.c=.o)
+OBJS 		:= $(addprefix obj/, $(SRCS:.c=.o))
 
 # Application directories
 SRCDIR 		:= src
+OBJDIR		:= obj
+VPATH 		:= $(SRCDIR) 
 INITDIR 	:= init.d
-REAL_SRCS 	:= $(addprefix $(SRCDIR)/, $(SRCS))
+MANDIR		:= man
 MANPAGES 	:= $(addsuffix .gz, $(addprefix man/, thinkd.8))
 
 # Install dirs 
@@ -26,6 +28,7 @@ RM = rm -f
 INSTALL = install
 STRIP = strip --strip-all
 GZIP = gzip
+MKDIR = mkdir -p
 
 # Other
 Q ?= @
@@ -40,19 +43,23 @@ ifeq ($(Q), @)
 	@printf "LINK $(EXE) $(OBJS)\n"
 	@printf "STRIP $(EXE)\n"
 endif
-	$(Q)$(LINK.c) -o $@ $(OBJS)
+	$(Q)$(LINK.o) -o $@ $(OBJS)
 	$(Q)$(STRIP) $(EXE)
 
-man/%.8.gz: man/%.8
+$(MANDIR)/%.8.gz: $(MANDIR)/%.8
 ifeq ($(Q), @)
 	@printf "COMPRESS $^\n"
 endif
 	$(Q)$(GZIP) $< -c > $@
 
-$(OBJS): $(SRCDIR)/config.h \
-			$(SRCDIR)/void.h
+$(OBJDIR):
+	$(MKDIR) $(OBJDIR)
 
-$(OBJS): %.o: $(SRCDIR)/%.c $(SRCDIR)/%.h
+$(OBJS): | $(OBJDIR)
+$(OBJS): config.h \
+			void.h
+
+$(OBJS): $(OBJDIR)/%.o: %.c %.h
 ifeq ($(Q), @)
 	@printf	"CC $@\n"
 endif

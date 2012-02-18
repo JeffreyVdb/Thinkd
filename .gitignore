@@ -2,6 +2,9 @@
 *.o
 man/*.gz
 
+# directories
+/obj/
+
 # special files
 /thinkd
 src/TAGS
