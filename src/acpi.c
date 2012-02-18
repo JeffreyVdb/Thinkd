@@ -17,7 +17,7 @@
 #define HDA_INTEL_DIR "/sys/module/snd_hda_intel/"
 #define AC97_DIR "/sys/module/snd_ac97_codec/"
 
-const static volatile power_prefs_t *current;
+const volatile power_prefs_t *current;
 
 static int pprintf(const char *path, const char *format, ...) THINKD_ATTR_PRINTF(2);
 static void set_audio_state(audio_type_t type, const power_prefs_t *prefs);
