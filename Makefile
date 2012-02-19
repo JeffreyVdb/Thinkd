@@ -21,6 +21,7 @@ MANPAGES 	:= $(addsuffix .gz, $(addprefix man/, thinkd.8))
 
 # Install dirs 
 PREFIX 			?= /usr/local
+INST_REQUISITES = $(EXE) $(MANPAGES)
 INST_INITDIR 	:= /etc/init.d/
 INST_CONFDIR 	:= /etc
 INST_BINDIR 	:= $(PREFIX)/bin
@@ -40,7 +41,7 @@ ifneq ($(Q), @)
 override Q := 
 endif
 
-all: $(EXE) $(MANPAGES)
+all: $(INST_REQUISITES)
 
 $(EXE): $(OBJS) $(LIB_FLAGS)
 ifeq ($(Q), @)
@@ -82,7 +83,7 @@ killd:
 clean:
 	$(RM) $(OBJS) $(EXE) $(MANPAGES)
 
-install: $(EXE)
+install: $(INST_REQUISITES)
 	install -m 0755 $(EXE) $(INST_BINDIR)
 ifeq ($(shell uname -r | egrep -q "fc1[6-9]+" && echo 1),1)
 	@echo "Detected fedora 16+"
