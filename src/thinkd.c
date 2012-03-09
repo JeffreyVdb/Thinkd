@@ -253,7 +253,7 @@ static bool create_pidfile()
 	unlink(pidfile);
 	
 	/* check if the pidfile is defined */
-	pfd = open(pidfile, O_WRONLY|O_CREAT|O_EXCL);
+	pfd = open(pidfile, O_WRONLY|O_CREAT|O_EXCL, (mode_t) 600);
 	if (pfd >= 0) {
 		FILE *pfp;
 		pfp = fdopen(pfd, "w");
