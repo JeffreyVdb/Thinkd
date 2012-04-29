@@ -79,6 +79,7 @@ clean:
 	$(RM) $(OBJS) $(EXE) $(MANPAGES)
 
 install: $(EXE)
+	$(MKDIR) $(INST_MANDIR)
 	install -m 0755 $(EXE) $(INST_BINDIR)
 ifeq ($(shell uname -r | egrep -q "fc1[6-9]+" && echo 1),1)
 	@echo "Detected fedora 16+"
