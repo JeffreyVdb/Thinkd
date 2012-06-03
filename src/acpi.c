@@ -22,8 +22,7 @@ static void set_rfkill_devices(const power_prefs_t *prefs);
 int scan_power_supply(acpi_psupply_t *dest)
 {
 	int batt_count = 0;
-	FILE * psup_fp;
-	char psup_path[MAX_POW_SUPPLY_PATH];
+	sysfs_path_t psup_path;
 	char *name;
 	DIR *psup_dir;
 	struct dirent *psup_entry;
@@ -35,23 +34,15 @@ int scan_power_supply(acpi_psupply_t *dest)
 	}
 
 	while ((psup_entry = readdir(psup_dir))) {
-		char tmp_type[8]; /* either Mains or Battery */
+		sysfs_value_t tmp_type; /* either Mains or Battery */
 		name = psup_entry->d_name;
 
 		/* skip .. and . */
 		if (! strncmp(".", name, 1) || ! strncmp("..", name, 2))
 			continue;
-		sprintf(psup_path, POWER_SUPPLY_DIRECTORY "/%s/type", name);
-		psup_fp = fopen(psup_path, "r");
-		if (! psup_fp) {
-			thinkd_log(LOG_ERR, "could not open %s for reading: %s", psup_path,
-			       strerror(errno));
-			continue;
-		}
 
-		/* read type into tmp_type */
-		fgets(tmp_type, 8, psup_fp);
-		fclose(psup_fp);
+		sysfs_sprintf(psup_path, "%s/%s/type", POWER_SUPPLY_DIRECTORY, name);
+		sysfs_gets(tmp_type, psup_path);
 		
 		if (strncmp("Battery", tmp_type, 7) == 0) {
 			sprintf(dest->batteries[batt_count],
@@ -82,7 +73,9 @@ int sysfs_read_int(const char *path)
 		return 0;
 	}
 
-	fscanf(fp, "%d", &result);
+	if (! fscanf(fp, "%d", &result))
+		LOG_SIMPLE_ERR("fscanf");
+		
 	fclose(fp);
 	
 	return result;
@@ -95,19 +88,22 @@ char *sysfs_read_str(char * dest, size_t len, const char *path)
 	
 	fp = fopen(path, "r");
 	if (! fp) {
-		thinkd_log(LOG_ERR, "fopen: %d (%s)", errno, strerror(errno));
+		thinkd_log(LOG_ERR, "fopen: %d (%s). File: %s", errno, strerror(errno), path);
 		return NULL;
 	}
 
-	fgets(dest, len, fp);
+	if (! fgets(dest, len, fp)) {
+		LOG_SIMPLE_ERR("fgets");		
+		goto clean;
+	}
 	
 	/* strip newline */
 	pch = strchr(dest, '\n');
 	if (pch)
 		*pch = '\0';
-	
-	fclose(fp);
-	
+
+clean:
+	fclose(fp);	
 	return dest;
 }
 

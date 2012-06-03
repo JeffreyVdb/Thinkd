@@ -77,13 +77,22 @@ int thinkd_open_log()
 	}
 
 	/* at this point the lock is ours */
+#define EC_FREOPEN(path, mode, stream) \
+	do {						\
+		stream = freopen(path, mode, stream);	\
+		if (! stream) {				\
+			LOG_SIMPLE_ERR("freopen");	\
+			return 1;			\
+		}					\
+	} while (0)
+	
 	for (i = 0; i < array_count(fds); ++i) {
 		fstat(fds[i], &logstat);
 		if (logstat.st_size > MAX_LOG_SIZE) {
-			freopen(LOG_INFO_PATH, "w", info_logfile);
-			freopen(LOG_ERR_PATH, "w", err_logfile);
+			EC_FREOPEN(LOG_INFO_PATH, "w", info_logfile);
+			EC_FREOPEN(LOG_ERR_PATH, "w", err_logfile);
 #if _DEBUG_LOG == 1
-			freopen(LOG_DEBUG_PATH, "w", debug_logfile);
+			EC_FREOPEN(LOG_DEBUG_PATH, "w", debug_logfile);
 #endif
 			break;
 		}
